@@ -25,6 +25,9 @@ function RegisterForm() {
     const qEmail = searchParams.get("email");
     if (qEmail) {
       setEmail(qEmail);
+      const defaultName = qEmail.split("@")[0];
+      setName((prev) => prev || defaultName);
+      setNickname((prev) => prev || defaultName);
     }
   }, [searchParams]);
 
@@ -34,15 +37,10 @@ function RegisterForm() {
     setExistingUser(false);
 
     const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim();
+    const cleanName = name.trim() || (cleanEmail.includes("@") ? cleanEmail.split("@")[0] : cleanEmail);
 
     if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
       setError("กรุณาระบุอีเมลที่ถูกต้อง (เช่น yourname@gmail.com)");
-      return;
-    }
-
-    if (!cleanName) {
-      setError("กรุณาระบุชื่อ-นามสกุล");
       return;
     }
 

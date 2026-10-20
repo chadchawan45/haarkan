@@ -112,6 +112,17 @@ const initialMembers: Member[] = [
     bankAccountNumber: "012-3-45678-9",
     promptpayNumber: "081-234-5678",
   },
+  {
+    id: "mem-0928919213",
+    name: "0928919213t",
+    nickname: "0928919213t",
+    role: "member",
+    status: "active",
+    avatarColor: "#e67e22",
+    email: "0928919213t@gmail.com",
+    password: "password123",
+    promptpayNumber: "092-891-9213",
+  },
 ];
 
 // เริ่มต้นเป็นยอด 0 บาท ไม่มีรายการค้าง
@@ -249,6 +260,14 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
           );
           if (!hasGolf) {
             sanitizedMembers = [initialMembers[0], ...sanitizedMembers];
+          }
+
+          // รับรองว่า 0928919213t@gmail.com จะมีอยู่ในระบบเสมอ
+          const hasSecondAccount = sanitizedMembers.some(
+            (m: Member) => m.email?.toLowerCase() === "0928919213t@gmail.com" || m.id === "mem-0928919213"
+          );
+          if (!hasSecondAccount && initialMembers[2]) {
+            sanitizedMembers = [...sanitizedMembers, initialMembers[2]];
           }
 
           setMembers(sanitizedMembers.length > 0 ? sanitizedMembers : initialMembers);

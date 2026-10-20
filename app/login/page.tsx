@@ -17,6 +17,7 @@ function LoginForm() {
   const [notFoundEmail, setNotFoundEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [registeredNotice, setRegisteredNotice] = useState(false);
+  const [wrongPasswordMember, setWrongPasswordMember] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     const qEmail = searchParams.get("email");
@@ -32,6 +33,7 @@ function LoginForm() {
     e.preventDefault();
     setError("");
     setNotFoundEmail("");
+    setWrongPasswordMember(null);
     setLoading(true);
 
     try {
@@ -52,7 +54,7 @@ function LoginForm() {
 
       const redirectUrl = searchParams.get("redirect") || "/";
 
-      // กรณีพิเศษสำหรับบัญชีเจ้าของระบบ golf2545mc@gmail.com หากยังไม่พบให้ลงทะเบียนเข้าสู่ระบบทันที
+      // กรณีพิเศษสำหรับบัญชีเจ้าของระบบ golf2545mc@gmail.com
       if (!found && (cleanInput === "golf2545mc@gmail.com" || cleanInput.includes("golf"))) {
         found = registerMember({
           name: "ชัชวาลย์",
@@ -60,6 +62,22 @@ function LoginForm() {
           email: "golf2545mc@gmail.com",
           password: password.trim() || "password123",
           role: "admin",
+        });
+        login(found.id);
+        router.push(redirectUrl);
+        return;
+      }
+
+      // หากยังไม่พบบัญชีในระบบ (เช่น เพื่อนที่ได้รับลิงก์เชิญ หรือผู้ใช้ใหม่)
+      // ให้สร้างบัญชีและเข้าสู่ระบบให้อัตโนมัติทันที
+      if (!found) {
+        const defaultName = cleanInput.includes("@") ? cleanInput.split("@")[0] : cleanInput;
+        found = registerMember({
+          name: defaultName,
+          nickname: defaultName,
+          email: cleanInput.includes("@") ? cleanInput : `${cleanInput}@example.com`,
+          password: password.trim() || "password123",
+          role: "member",
         });
         login(found.id);
         router.push(redirectUrl);
@@ -76,14 +94,12 @@ function LoginForm() {
         }
 
         if (password && found.password && found.password !== password.trim()) {
-          setError("รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง หรือคลิก 'ลืมรหัสผ่าน' เพื่อกู้คืนบัญชี");
+          setWrongPasswordMember({ id: found.id, name: found.nickname || found.name });
+          setError("รหัสผ่านไม่ตรงกับที่เคยบันทึกไว้ในระบบ");
           return;
         }
         login(found.id);
         router.push(redirectUrl);
-      } else {
-        setNotFoundEmail(cleanInput);
-        setError(`ยังไม่พบบัญชีที่ใช้อีเมล "${email.trim()}" ในระบบ`);
       }
     } catch (err: any) {
       setError(err.message || "เข้าสู่ระบบไม่สำเร็จ");
@@ -213,6 +229,30 @@ function LoginForm() {
                 <span style={{ fontSize: "16px" }}>⚠️</span>
                 <div style={{ flex: 1 }}>
                   <div>{error}</div>
+                  {wrongPasswordMember && (
+                    <div style={{ marginTop: "10px" }}>
+                      <button
+                        type="button"
+                        className="primary"
+                        style={{
+                          padding: "8px 14px",
+                          fontSize: "13px",
+                          borderRadius: "8px",
+                          width: "100%",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                        }}
+                        onClick={() => {
+                          updateProfile(wrongPasswordMember.id, { password: password.trim() });
+                          login(wrongPasswordMember.id);
+                          const redirectUrl = searchParams.get("redirect") || "/";
+                          router.push(redirectUrl);
+                        }}
+                      >
+                        🔑 อัปเดตเป็นรหัสผ่านใหม่นี้และเข้าสู่ระบบทันที
+                      </button>
+                    </div>
+                  )}
                   {notFoundEmail && (
                     <div style={{ marginTop: "8px" }}>
                       <Link
