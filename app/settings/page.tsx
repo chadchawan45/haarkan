@@ -30,6 +30,7 @@ export default function SettingsPage() {
   // Invite Generator
   const [inviteToken, setInviteToken] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // New Member Modal/Input
   const [newMemberName, setNewMemberName] = useState("");
@@ -271,14 +272,50 @@ export default function SettingsPage() {
             </button>
           </form>
 
-          {/* สร้างลิงก์เชิญสมาชิกใหม่ */}
+          {/* รหัสห้องและลิงก์เชิญสมาชิกใหม่ */}
           <div className="card">
             <div className="section-title">
-              <span>ลิงก์เชิญสมาชิกเข้ากลุ่ม (Invite Link)</span>
+              <span>รหัสห้องและลิงก์เชิญ (Classroom Code & Invite)</span>
+            </div>
+
+            {/* รหัสห้อง 6 ตัวอักษร */}
+            <div
+              style={{
+                background: "rgba(31, 111, 83, 0.06)",
+                border: "2px dashed rgba(31, 111, 83, 0.3)",
+                borderRadius: "14px",
+                padding: "16px",
+                marginBottom: "16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "12px",
+              }}
+            >
+              <div>
+                <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)", display: "block" }}>
+                  🏷️ รหัสห้อง 6 หลักสำหรับชวนเพื่อน
+                </span>
+                <strong style={{ fontFamily: "monospace", fontSize: "24px", letterSpacing: "4px", color: "#1f6f53" }}>
+                  {group.code}
+                </strong>
+              </div>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  navigator.clipboard.writeText(group.code);
+                  setCopiedCode(true);
+                  setTimeout(() => setCopiedCode(false), 2000);
+                }}
+                style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700, borderRadius: "10px" }}
+              >
+                {copiedCode ? "✓ คัดลอกแล้ว!" : "📋 คัดลอกรหัส"}
+              </button>
             </div>
 
             <p style={{ fontSize: "13px", color: "#666", margin: "0 0 14px", lineHeight: 1.5 }}>
-              สร้างลิงก์เชิญแบบมี Token ที่ปลอดภัย ผู้รับจะต้องมีบัญชีหรือสมัครสมาชิกด้วยอีเมลก่อนจึงจะสามารถเข้าร่วมกลุ่มได้
+              หรือแชร์ลิงก์เชิญแบบมี Token ที่ปลอดภัย ผู้รับจะต้องมีบัญชีหรือสมัครสมาชิกด้วยอีเมลก่อนจึงจะสามารถเข้าร่วมกลุ่มได้
             </p>
 
             {inviteToken ? (

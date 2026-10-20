@@ -9,7 +9,10 @@ export default function AcceptInvitePage() {
   const params = useParams();
   const token = params?.token as string;
   const router = useRouter();
-  const { group, members, currentMember, isAuthenticated, logout } = useGroup();
+  const { group, groups, joinGroupByCode, members, currentMember, isAuthenticated, logout } = useGroup();
+
+  // หาก token ตรงกับรหัสห้อง 6 ตัวในระบบ ให้ใช้ข้อมูลห้องนั้น
+  const targetGroup = groups.find((g) => g.code?.toUpperCase() === token?.toUpperCase()) || group;
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -21,10 +24,11 @@ export default function AcceptInvitePage() {
 
   const handleJoinGroup = () => {
     setLoading(true);
+    joinGroupByCode(token || targetGroup.code);
     setSuccess(true);
     setTimeout(() => {
       router.push("/");
-    }, 1200);
+    }, 1000);
   };
 
   return (

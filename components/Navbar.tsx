@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useGroup } from "@/lib/group-context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DemoBanner } from "@/components/DemoBanner";
+import { JoinRoomModal } from "@/components/JoinRoomModal";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -22,6 +23,7 @@ export function Navbar() {
     isAuthenticated,
     isDemo,
     logout,
+    setJoinModalOpen,
   } = useGroup();
 
   const [showNotifs, setShowNotifs] = useState(false);
@@ -36,6 +38,7 @@ export function Navbar() {
           ...(isGroupCreator ? [{ label: "🔒 ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
       : [
+          { label: "🏫 ห้องทั้งหมด", href: "/rooms" },
           { label: "ภาพรวม", href: "/" },
           { label: "รายจ่าย", href: "/expenses" },
           { label: "เคลียร์เงิน & ชำระหนี้", href: "/balances" },
@@ -77,6 +80,29 @@ export function Navbar() {
         </div>
 
         <div className="top-right">
+          {/* ปุ่มเข้าร่วมห้อง (Classroom Join Room) */}
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setJoinModalOpen(true)}
+            style={{
+              padding: "6px 12px",
+              fontSize: "12px",
+              fontWeight: 700,
+              borderRadius: "10px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "4px",
+              background: "rgba(31, 111, 83, 0.08)",
+              border: "1px solid rgba(31, 111, 83, 0.3)",
+              color: "#1f6f53",
+              cursor: "pointer",
+            }}
+            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมห้อง"
+          >
+            🔑 เข้าร่วมห้อง
+          </button>
+
           {/* ปุ่มสลับธีมมืด / ธีมสว่าง */}
           <ThemeToggle />
 
@@ -267,6 +293,9 @@ export function Navbar() {
           );
         })}
       </nav>
+
+      {/* โมดอลเข้าร่วมห้องด้วยรหัส 6 ตัว */}
+      <JoinRoomModal />
     </header>
   );
 }

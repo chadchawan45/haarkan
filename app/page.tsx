@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useGroup, ExpenseRecord, PaymentRecord } from "@/lib/group-context";
 import { formatTHB } from "@/lib/money";
@@ -19,9 +20,14 @@ const CATEGORY_COLORS: Record<string, string> = {
   "ทั่วไป": "#95c6b0",
 };
 
-export default function DashboardPage() {
+function DashboardContent() {
+  const searchParams = useSearchParams();
   const {
+    groups,
     group,
+    switchGroup,
+    joinGroupByCode,
+    setJoinModalOpen,
     members,
     expenses,
     payments,
@@ -36,6 +42,15 @@ export default function DashboardPage() {
     isDemo,
     triggerDemoLock,
   } = useGroup();
+
+  const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const joinCode = searchParams.get("join");
+    if (joinCode) {
+      joinGroupByCode(joinCode);
+    }
+  }, [searchParams, joinGroupByCode]);
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -100,12 +115,21 @@ export default function DashboardPage() {
       <section className="intro">
         <div>
           <p className="eyebrow">
-            กลุ่ม: <strong>{group.name}</strong> · วันนี้ {now.toLocaleDateString("th-TH", { dateStyle: "long" })}
+            กลุ่มที่กำลังเปิดใช้งาน: <strong>{group.name}</strong> · รหัสห้อง: <strong style={{ fontFamily: "monospace", letterSpacing: "2px", color: "#1f6f53" }}>{group.code}</strong>
           </p>
           <h1>สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋</h1>
         </div>
 
         <div className="actions-row">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setJoinModalOpen(true)}
+            style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 700 }}
+            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมห้อง"
+          >
+            🔑 เข้าร่วมห้อง
+          </button>
           <Link
             href="/profile"
             className="secondary"
@@ -150,6 +174,210 @@ export default function DashboardPage() {
               💳 เคลียร์เงิน / ชำระหนี้
             </Link>
           )}
+        </div>
+      </section>
+
+      {/* ส่วนแสดงห้องทั้งหมดแบบ Google Classroom */}
+      <section style={{ marginBottom: "32px" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "12px",
+            marginBottom: "16px",
+          }}
+        >
+          <div>
+            <h2 style={{ fontSize: "19px", fontWeight: 700, margin: "0 0 4px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>🏫</span> ห้องทั้งหมดของคุณ ({groups.length} ห้อง)
+            </h2>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted, #6a766e)" }}>
+              ห้องสไตล์ Google Classroom · คลิกเพื่อสลับห้อง หรือส่งรหัส 6 หลักให้เพื่อนเข้าร่วม
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px" }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setJoinModalOpen(true)}
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: "pointer",
+              }}
+            >
+              🔑 เข้าร่วมห้องด้วยรหัส
+            </button>
+            <Link
+              href="/groups/new"
+              className="secondary"
+              style={{
+                padding: "8px 16px",
+                fontSize: "13px",
+                fontWeight: 600,
+                borderRadius: "10px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+              }}
+            >
+              ＋ สร้างห้องใหม่
+            </Link>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+            gap: "18px",
+          }}
+        >
+          {groups.map((g) => {
+            const isActive = g.id === group.id;
+            return (
+              <div
+                key={g.id}
+                className="card"
+                onClick={() => switchGroup(g.id)}
+                style={{
+                  padding: 0,
+                  overflow: "hidden",
+                  cursor: "pointer",
+                  border: isActive ? "2px solid #1f6f53" : "1px solid var(--border, #e5e7eb)",
+                  boxShadow: isActive ? "0 8px 24px rgba(31, 111, 83, 0.18)" : "0 4px 12px rgba(0,0,0,0.05)",
+                  transition: "all 0.2s ease",
+                  borderRadius: "16px",
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                {/* Header Banner แบบ Google Classroom */}
+                <div
+                  style={{
+                    background: g.bannerGradient || "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
+                    color: "#fff",
+                    padding: "18px",
+                    minHeight: "95px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    position: "relative",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                    <h3
+                      style={{
+                        margin: 0,
+                        fontSize: "18px",
+                        fontWeight: 700,
+                        color: "#fff",
+                        lineHeight: 1.3,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                      }}
+                    >
+                      {g.name}
+                    </h3>
+                    {isActive && (
+                      <span
+                        style={{
+                          background: "rgba(255,255,255,0.25)",
+                          backdropFilter: "blur(4px)",
+                          color: "#fff",
+                          padding: "2px 8px",
+                          borderRadius: "99px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        ● กำลังเปิดอยู่
+                      </span>
+                    )}
+                  </div>
+                  {g.description && (
+                    <p
+                      style={{
+                        margin: "4px 0 0",
+                        fontSize: "12px",
+                        color: "rgba(255,255,255,0.85)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {g.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* Body ส่วนแสดงรหัสห้อง 6 หลัก */}
+                <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                  <div
+                    style={{
+                      background: "rgba(31, 111, 83, 0.05)",
+                      border: "1px dashed rgba(31, 111, 83, 0.28)",
+                      borderRadius: "10px",
+                      padding: "8px 12px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontSize: "11px", color: "var(--text-muted, #6a766e)", display: "block" }}>
+                        รหัสห้อง (Classroom Code)
+                      </span>
+                      <strong style={{ fontFamily: "monospace", fontSize: "17px", letterSpacing: "3px", color: "#1f6f53" }}>
+                        {g.code}
+                      </strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(g.code);
+                        setCopiedCodeId(g.id);
+                        setTimeout(() => setCopiedCodeId(null), 2000);
+                      }}
+                      style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "6px" }}
+                      title="คัดลอกรหัสห้องส่งให้เพื่อน"
+                    >
+                      {copiedCodeId === g.id ? "✓ แล้ว!" : "📋 คัดลอก"}
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: "4px" }}>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
+                      👑 {g.creatorMemberId === currentMemberId ? "คุณสร้าง" : "Admin"}
+                    </span>
+                    <button
+                      type="button"
+                      className={isActive ? "primary" : "secondary"}
+                      style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 700, borderRadius: "8px" }}
+                    >
+                      {isActive ? "จัดการห้องนี้ ➔" : "เข้าสู่ห้อง ➔"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
@@ -454,5 +682,19 @@ export default function DashboardPage() {
 
       <ProofModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="shell">
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>กำลังโหลดข้อมูลห้อง...</div>
+        </main>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }

@@ -82,7 +82,53 @@ export interface GroupSettings {
   weekStartsOn: number; // 0=Sunday, 1=Monday
   defaultCurrency: string;
   creatorMemberId?: string;
+  code: string; // รหัสห้อง 6 ตัวอักษร เช่น HA8K29
+  bannerGradient?: string;
+  createdAt?: string;
 }
+
+export function generateRoomCode(): string {
+  const chars = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+export const CLASSROOM_GRADIENTS = [
+  "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)", // เขียวมรกต
+  "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)", // น้ำเงิน
+  "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)", // ม่วง
+  "linear-gradient(135deg, #d97706 0%, #b45309 100%)", // ส้มอำพัน
+  "linear-gradient(135deg, #0d9488 0%, #0f766e 100%)", // เขียวทีล
+  "linear-gradient(135deg, #e11d48 0%, #be123c 100%)", // แดงกุหลาบ
+];
+
+export const initialGroups: GroupSettings[] = [
+  {
+    id: "group-1",
+    name: "บ้านสุขใจ",
+    description: "กลุ่มแชร์ค่าใช้จ่ายในบ้านและทริปส่วนกลาง",
+    weekStartsOn: 1,
+    defaultCurrency: "THB",
+    creatorMemberId: "mem-golf",
+    code: "HA8K29",
+    bannerGradient: "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "group-2",
+    name: "ทริปเที่ยวญี่ปุ่น 2026",
+    description: "หารค่าที่พัก ค่าตั๋วรถไฟ และค่ากินตลอดทริป",
+    weekStartsOn: 1,
+    defaultCurrency: "THB",
+    creatorMemberId: "mem-golf",
+    code: "JP2026",
+    bannerGradient: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+    createdAt: new Date().toISOString(),
+  },
+];
 
 const STORAGE_KEY = "group_expense_app_state_v3";
 
@@ -197,20 +243,42 @@ interface GroupContextType {
   removeMember: (memberId: string) => void;
   clearDummyMembers: () => void;
   resetToDefaultData: () => void;
-  createGroup: (data: { name: string; description?: string; weekStartsOn?: number }) => void;
+  createGroup: (data: { name: string; description?: string; weekStartsOn?: number; code?: string }) => GroupSettings;
+  groups: GroupSettings[];
+  switchGroup: (groupId: string) => void;
+  joinGroupByCode: (code: string) => { success: boolean; message: string; group?: GroupSettings };
+  joinModalOpen: boolean;
+  setJoinModalOpen: (open: boolean) => void;
 }
 
 const GroupContext = createContext<GroupContextType | null>(null);
 
 export function GroupProvider({ children }: { children: React.ReactNode }) {
-  const [group, setGroup] = useState<GroupSettings>({
-    id: "group-1",
-    name: "บ้านสุขใจ",
-    description: "กลุ่มแชร์ค่าใช้จ่ายในบ้านและทริปส่วนกลาง",
-    weekStartsOn: 1, // เริ่มวันจันทร์
-    defaultCurrency: "THB",
-    creatorMemberId: "mem-golf",
-  });
+  const [groups, setGroups] = useState<GroupSettings[]>(initialGroups);
+  const [currentGroupId, setCurrentGroupId] = useState<string>("group-1");
+  const [joinModalOpen, setJoinModalOpen] = useState<boolean>(false);
+
+  const group = useMemo(
+    () => groups.find((g) => g.id === currentGroupId) || groups[0] || initialGroups[0],
+    [groups, currentGroupId]
+  );
+
+  const setGroup = (updater: GroupSettings | ((prev: GroupSettings) => GroupSettings)) => {
+    setGroups((prev) => {
+      const current = prev.find((g) => g.id === currentGroupId) || prev[0] || initialGroups[0];
+      const nextGroup = typeof updater === "function" ? updater(current) : updater;
+      const idx = prev.findIndex((g) => g.id === nextGroup.id);
+      if (idx >= 0) {
+        const updated = [...prev];
+        updated[idx] = nextGroup;
+        return updated;
+      }
+      return [...prev, nextGroup];
+    });
+    if (typeof updater !== "function") {
+      setCurrentGroupId(updater.id);
+    }
+  };
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(initialExpenses);
@@ -243,7 +311,25 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.group) setGroup(parsed.group);
+        if (parsed.groups && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+          const sanitizedGroups = parsed.groups.map((g: GroupSettings, i: number) => ({
+            ...g,
+            code: g.code || (i === 0 ? "HA8K29" : generateRoomCode()),
+            bannerGradient: g.bannerGradient || CLASSROOM_GRADIENTS[i % CLASSROOM_GRADIENTS.length],
+          }));
+          setGroups(sanitizedGroups);
+          if (parsed.currentGroupId) {
+            setCurrentGroupId(parsed.currentGroupId);
+          } else if (parsed.group?.id) {
+            setCurrentGroupId(parsed.group.id);
+          }
+        } else if (parsed.group) {
+          setGroup({
+            ...parsed.group,
+            code: parsed.group.code || "HA8K29",
+            bannerGradient: parsed.group.bannerGradient || CLASSROOM_GRADIENTS[0],
+          });
+        }
         if (parsed.members) {
           const DUMMY_IDS = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
           // กรองสมาชิกตัวอย่างออกเพื่อพร้อมใช้งานจริง และตัดข้อความ (คุณ) ซ้ำซ้อน
@@ -296,12 +382,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo })
+        JSON.stringify({ groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo })
       );
     } catch (e) {
       console.warn("Could not write to local storage:", e);
     }
-  }, [group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo]);
+  }, [groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo]);
 
 
   const currentMember = useMemo(
@@ -366,12 +452,20 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     setGroup((prev) => ({ ...prev, ...newSettings }));
   };
 
+  const switchGroup = (groupId: string) => {
+    const target = groups.find((g) => g.id === groupId);
+    if (target) {
+      setCurrentGroupId(target.id);
+    }
+  };
+
   const createGroup: GroupContextType["createGroup"] = (data) => {
     if (isDemo) {
       triggerDemoLock("การสร้างกลุ่มใหม่");
-      return;
+      return group;
     }
 
+    const code = (data.code?.trim() || generateRoomCode()).toUpperCase();
     const newGroup: GroupSettings = {
       id: `group-${Date.now()}`,
       name: data.name.trim() || "กลุ่มของฉัน",
@@ -379,6 +473,9 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       weekStartsOn: data.weekStartsOn ?? 1,
       defaultCurrency: "THB",
       creatorMemberId: currentMemberId,
+      code,
+      bannerGradient: CLASSROOM_GRADIENTS[groups.length % CLASSROOM_GRADIENTS.length],
+      createdAt: new Date().toISOString(),
     };
 
     // ตั้งให้ผู้สร้างกลุ่มมีสิทธิ์เป็น admin
@@ -388,15 +485,14 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
-    setGroup(newGroup);
-    setExpenses([]);
-    setPayments([]);
+    setGroups((prev) => [...prev, newGroup]);
+    setCurrentGroupId(newGroup.id);
 
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
-        title: "สร้างกลุ่มใหม่เรียบร้อยแล้ว",
-        body: `คุณได้สร้างกลุ่ม "${newGroup.name}" สำเร็จและได้รับสิทธิ์ตั้งค่ากลุ่ม`,
+        title: "สร้างห้องใหม่เรียบร้อยแล้ว",
+        body: `คุณได้สร้างห้อง "${newGroup.name}" รหัสห้องสำหรับเชิญเพื่อน: ${newGroup.code}`,
         type: "group_created",
         read: false,
         createdAt: new Date().toISOString(),
@@ -404,6 +500,59 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       },
       ...prev,
     ]);
+
+    return newGroup;
+  };
+
+  const joinGroupByCode = (inputCode: string) => {
+    const clean = inputCode.trim().toUpperCase();
+    if (!clean || clean.length < 3) {
+      return { success: false, message: "กรุณาระบุรหัสห้องที่ถูกต้อง (เช่น 6 ตัวอักษร)" };
+    }
+
+    let found = groups.find((g) => g.code?.toUpperCase() === clean);
+    if (!found) {
+      // สร้างห้องใหม่จากรหัสนี้เพื่อให้สามารถเข้าร่วมได้ทันทีแม้ไม่ได้อยู่บนเครื่องเดียวกัน
+      found = {
+        id: `group-code-${clean}`,
+        name: `ห้อง ${clean}`,
+        description: `ห้องแชร์ค่าใช้จ่าย (รหัส: ${clean})`,
+        weekStartsOn: 1,
+        defaultCurrency: "THB",
+        creatorMemberId: currentMemberId,
+        code: clean,
+        bannerGradient: CLASSROOM_GRADIENTS[Math.floor(Math.random() * CLASSROOM_GRADIENTS.length)],
+        createdAt: new Date().toISOString(),
+      };
+      setGroups((prev) => [...prev, found!]);
+    }
+
+    setCurrentGroupId(found.id);
+
+    // รับรองว่าผู้ใช้ปัจจุบันอยู่ในสมาชิกห้อง
+    if (!members.some((m) => m.id === currentMemberId && m.status === "active")) {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === currentMemberId ? { ...m, status: "active" as MemberStatus } : m))
+      );
+    }
+
+    setNotifications((prev) => [
+      {
+        id: `notif-${Date.now()}`,
+        title: "เข้าร่วมห้องสำเร็จ",
+        body: `คุณได้เข้าร่วมห้อง "${found!.name}" ด้วยรหัส ${clean} เรียบร้อยแล้ว`,
+        type: "group_joined",
+        read: false,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+
+    return {
+      success: true,
+      message: `เข้าร่วมห้อง "${found.name}" สำเร็จ!`,
+      group: found,
+    };
   };
 
   const addExpense: GroupContextType["addExpense"] = (expData) => {
@@ -885,14 +1034,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetToDefaultData = () => {
-    setGroup({
-      id: "group-1",
-      name: "บ้านสุขใจ",
-      description: "กลุ่มแชร์ค่าใช้จ่ายในบ้านและทริปส่วนกลาง",
-      weekStartsOn: 1,
-      defaultCurrency: "THB",
-      creatorMemberId: "mem-karn",
-    });
+    setGroups(initialGroups);
+    setCurrentGroupId(initialGroups[0].id);
     setMembers(initialMembers);
     setExpenses([]);
     setPayments([]);
@@ -923,7 +1066,6 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         isAdmin,
         isGroupCreator,
         groupCreator,
-        createGroup,
         activeMembers,
         isAuthenticated,
         isDemo,
@@ -944,6 +1086,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         optimizedSettlementList,
         unreadNotificationCount,
         setCurrentMemberId,
+        groups,
+        switchGroup,
+        joinGroupByCode,
+        joinModalOpen,
+        setJoinModalOpen,
+        createGroup,
         updateGroupSettings,
         addExpense,
         voidExpense,

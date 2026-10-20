@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useGroup } from "@/lib/group-context";
+import { useGroup, generateRoomCode } from "@/lib/group-context";
 import { Navbar } from "@/components/Navbar";
 
 export default function NewGroupPage() {
@@ -19,6 +19,9 @@ export default function NewGroupPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [weekStartsOn, setWeekStartsOn] = useState<number>(1);
+  const [roomCode, setRoomCode] = useState<string>(() => generateRoomCode());
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -69,12 +72,11 @@ export default function NewGroupPage() {
       name: name.trim(),
       description: description.trim(),
       weekStartsOn: Number(weekStartsOn),
+      code: roomCode,
     });
 
     setSuccess(true);
-    setTimeout(() => {
-      router.push("/");
-    }, 1200);
+    setLoading(false);
   };
 
   return (
@@ -133,23 +135,108 @@ export default function NewGroupPage() {
 
       {success && (
         <div
-          className="notice"
+          className="card"
           style={{
-            marginBottom: "24px",
-            background: "#dcfce7",
-            borderColor: "#86efac",
-            color: "#166534",
-            padding: "16px 20px",
-            fontSize: "15px",
-            fontWeight: 600,
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
+            maxWidth: "680px",
+            margin: "0 auto 30px",
+            background: "linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%)",
+            border: "2px solid #86efac",
+            borderRadius: "18px",
+            padding: "32px 24px",
+            textAlign: "center",
           }}
         >
-          <span style={{ fontSize: "20px" }}>🎉</span>
-          <div>
-            สร้างกลุ่ม &quot;{name}&quot; สำเร็จเรียบร้อย! กำลังนำคุณไปยังหน้าภาพรวม...
+          <div style={{ fontSize: "52px", marginBottom: "10px" }}>🎉</div>
+          <h2 style={{ color: "#166534", margin: "0 0 6px", fontSize: "22px" }}>
+            สร้างห้อง &quot;{name}&quot; สำเร็จเรียบร้อย!
+          </h2>
+          <p style={{ color: "#374151", fontSize: "14px", margin: "0 0 20px" }}>
+            ส่งรหัสห้อง 6 ตัวนี้ให้เพื่อน เพื่อให้เพื่อนกด <strong>&quot;🔑 เข้าร่วมห้อง&quot;</strong> แล้วกรอกรหัสนี้ได้ทันที
+          </p>
+
+          {/* กล่องแสดงรหัสห้องแบบ Classroom */}
+          <div
+            style={{
+              background: "#fff",
+              border: "2px dashed #16a34a",
+              borderRadius: "16px",
+              padding: "20px",
+              maxWidth: "380px",
+              margin: "0 auto 24px",
+              boxShadow: "0 10px 25px rgba(22, 163, 74, 0.12)",
+            }}
+          >
+            <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: 600, display: "block", marginBottom: "6px" }}>
+              🏷️ รหัสห้อง (CLASSROOM CODE)
+            </span>
+            <div
+              style={{
+                fontFamily: "monospace",
+                fontSize: "36px",
+                fontWeight: 900,
+                letterSpacing: "6px",
+                color: "#15803d",
+                padding: "8px 0",
+              }}
+            >
+              {roomCode}
+            </div>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center", marginTop: "12px" }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  navigator.clipboard.writeText(roomCode);
+                  setCopiedCode(true);
+                  setTimeout(() => setCopiedCode(false), 2500);
+                }}
+                style={{
+                  padding: "8px 16px",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  borderRadius: "10px",
+                }}
+              >
+                {copiedCode ? "✓ คัดลอกรหัสแล้ว!" : "📋 คัดลอกรหัสห้อง"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  const joinUrl = `${window.location.origin}/?join=${roomCode}`;
+                  navigator.clipboard.writeText(joinUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2500);
+                }}
+                style={{
+                  padding: "8px 14px",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                  borderRadius: "10px",
+                }}
+              >
+                {copiedLink ? "✓ คัดลอกลิงก์แล้ว!" : "🔗 คัดลอกลิงก์ชวน"}
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <Link
+              href="/"
+              className="primary"
+              style={{
+                padding: "12px 28px",
+                fontSize: "15px",
+                fontWeight: 700,
+                borderRadius: "12px",
+                textDecoration: "none",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              ➔ เข้าสู่ห้องและเริ่มใช้งาน ({name})
+            </Link>
           </div>
         </div>
       )}
@@ -186,6 +273,68 @@ export default function NewGroupPage() {
               disabled={loading || success}
             />
           </label>
+
+          {/* สุ่มรหัสห้อง 6 ตัวอักษรแบบ Classroom */}
+          <div
+            style={{
+              background: "linear-gradient(135deg, rgba(31, 111, 83, 0.08) 0%, rgba(31, 111, 83, 0.02) 100%)",
+              border: "2px dashed rgba(31, 111, 83, 0.35)",
+              borderRadius: "14px",
+              padding: "16px 18px",
+              marginBottom: "16px",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <div>
+                <span style={{ fontSize: "14px", fontWeight: 700, color: "#1f6f53", display: "flex", alignItems: "center", gap: "6px" }}>
+                  🏷️ รหัสห้อง 6 หลักสำหรับชวนเพื่อน (Classroom Code)
+                </span>
+                <p style={{ margin: "3px 0 0", fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
+                  ระบบสุ่มรหัส 6 ตัวนี้ให้คุณโดยอัตโนมัติ ส่งรหัสนี้ให้เพื่อนใช้กดปุ่ม <strong>&quot;เข้าร่วมห้อง&quot;</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setRoomCode(generateRoomCode())}
+                style={{ padding: "5px 10px", fontSize: "12px", borderRadius: "8px" }}
+                disabled={loading || success}
+                title="สุ่มรหัสใหม่"
+              >
+                🔄 สุ่มใหม่
+              </button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "10px" }}>
+              <div
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: "24px",
+                  fontWeight: 900,
+                  letterSpacing: "4px",
+                  color: "#1f6f53",
+                  background: "#fff",
+                  padding: "8px 18px",
+                  borderRadius: "10px",
+                  border: "1px solid #a7f3d0",
+                }}
+              >
+                {roomCode}
+              </div>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  navigator.clipboard.writeText(roomCode);
+                  setCopiedCode(true);
+                  setTimeout(() => setCopiedCode(false), 2000);
+                }}
+                style={{ padding: "8px 14px", fontSize: "12px", fontWeight: 600, borderRadius: "8px" }}
+              >
+                {copiedCode ? "✓ คัดลอกแล้ว!" : "📋 คัดลอกรหัส"}
+              </button>
+            </div>
+          </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
             <label className="field">
