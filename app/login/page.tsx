@@ -68,13 +68,6 @@ function LoginForm() {
     }
   };
 
-  const handleQuickFill = (testEmail: string, testPass: string) => {
-    setEmail(testEmail);
-    setPassword(testPass);
-    setError("");
-    setNotFoundEmail("");
-  };
-
   return (
     <main className="shell">
       <div style={{ maxWidth: "460px", margin: "40px auto" }} className="card">
@@ -217,37 +210,6 @@ function LoginForm() {
           >
             สมัครสมาชิกใหม่ด้วยอีเมลที่นี่ ➔
           </Link>
-        </div>
-
-        {/* บัญชีระบบสำหรับทดสอบด่วน */}
-        <div
-          style={{
-            marginTop: "20px",
-            paddingTop: "16px",
-            borderTop: "1px dashed var(--border, #eef0ed)",
-          }}
-        >
-          <span style={{ fontSize: "12px", color: "var(--text-muted, #777)", display: "block", marginBottom: "8px" }}>
-            💡 หรือคลิกเลือกบัญชีระบบเพื่อทดสอบด่วน:
-          </span>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-            <button
-              type="button"
-              onClick={() => handleQuickFill("karn@haarkan.local", "password123")}
-              style={{
-                background: "rgba(31, 111, 83, 0.08)",
-                border: "1px solid rgba(31, 111, 83, 0.25)",
-                color: "#1f6f53",
-                borderRadius: "16px",
-                padding: "4px 12px",
-                fontSize: "12px",
-                cursor: "pointer",
-                fontWeight: 600,
-              }}
-            >
-              👤 กานต์ (karn@haarkan.local)
-            </button>
-          </div>
         </div>
 
         <div style={{ textAlign: "center", marginTop: "16px" }}>

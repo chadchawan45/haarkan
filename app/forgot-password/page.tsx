@@ -133,35 +133,7 @@ export default function ForgotPasswordPage() {
               />
             </label>
 
-            {/* Quick Chips สำหรับทดสอบ */}
-            <div style={{ margin: "12px 0 18px" }}>
-              <span style={{ fontSize: "12px", color: "#777", display: "block", marginBottom: "6px" }}>
-                หรือคลิกเลือกบัญชีตัวอย่างในระบบ:
-              </span>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                {members.slice(0, 4).map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setIdentifier(m.email || m.nickname || m.name)}
-                    style={{
-                      background: "rgba(31, 111, 83, 0.08)",
-                      border: "1px solid rgba(31, 111, 83, 0.2)",
-                      color: "#1f6f53",
-                      borderRadius: "14px",
-                      padding: "3px 10px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      fontWeight: 500,
-                    }}
-                  >
-                    {m.email || m.nickname || m.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button type="submit" className="primary full-btn" disabled={loading} style={{ padding: "12px", fontWeight: 700 }}>
+            <button type="submit" className="primary full-btn" disabled={loading} style={{ padding: "12px", fontWeight: 700, marginTop: "16px" }}>
               {loading ? "กำลังตรวจสอบ..." : "➔ ค้นหาและตรวจสอบบัญชี"}
             </button>
           </form>
