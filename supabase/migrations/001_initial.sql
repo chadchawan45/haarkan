@@ -1,0 +1,84 @@
+-- Core schema. Run with Supabase CLI; all monetary values are integer satang.
+create type public.member_role as enum ('admin','member'); create type public.member_status as enum ('active','inactive','removed'); create type public.expense_status as enum ('active','voided'); create type public.split_mode as enum ('equal','custom','weighted'); create type public.payment_status as enum ('pending_proof','submitted','confirmed','rejected','cancelled'); create type public.settlement_mode as enum ('direct','optimized','manual');
+create table public.profiles(id uuid primary key references auth.users(id),display_name text not null,created_at timestamptz not null default now());
+create extension if not exists pgcrypto;
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,display_name) values(new.id,coalesce(new.raw_user_meta_data->>'display_name','สมาชิกใหม่')); return new; end $$;
+create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
+create table public.groups(id uuid primary key default gen_random_uuid(),name text not null,description text,default_currency text not null default 'THB',week_starts_on smallint not null default 1 check(week_starts_on between 0 and 6),created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
+create table public.group_members(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),user_id uuid not null references public.profiles(id),role public.member_role not null default 'member',status public.member_status not null default 'active',pin_hash text,created_at timestamptz not null default now(),unique(group_id,user_id));
+create table public.group_invites(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),token_hash text not null unique,role public.member_role not null default 'member',expires_at timestamptz not null,max_uses integer not null default 1 check(max_uses>0),used_count integer not null default 0 check(used_count>=0 and used_count<=max_uses),revoked_at timestamptz,created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
+create table public.expense_categories(id uuid primary key default gen_random_uuid(),group_id uuid references public.groups(id),name_th text not null,is_active boolean not null default true,sort_order smallint not null default 0);
+create table public.expenses(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),title text not null,expense_date date not null,total_amount_satang bigint not null check(total_amount_satang>0),split_mode public.split_mode not null,note text,status public.expense_status not null default 'active',void_reason text,created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
+create table public.expense_payers(expense_id uuid not null references public.expenses(id),member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>0),primary key(expense_id,member_id));
+create table public.expense_shares(expense_id uuid not null references public.expenses(id),member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>=0),weight integer check(weight is null or weight>0),primary key(expense_id,member_id));
+create table public.payments(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),from_member_id uuid not null references public.group_members(id),to_member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>0),payment_date date not null default current_date,status public.payment_status not null default 'pending_proof',settlement_mode public.settlement_mode not null default 'manual',submitted_by uuid references public.profiles(id),confirmed_by uuid references public.profiles(id),confirmed_at timestamptz,rejection_reason text,created_at timestamptz not null default now(),check(from_member_id<>to_member_id));
+create table public.payment_proofs(id uuid primary key default gen_random_uuid(),payment_id uuid not null references public.payments(id),storage_path text not null unique,original_filename text not null,mime_type text not null check(mime_type in ('image/jpeg','image/png','application/pdf')),size_bytes integer not null check(size_bytes>0 and size_bytes<=10485760),uploaded_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
+create table public.notifications(id uuid primary key default gen_random_uuid(),user_id uuid not null references public.profiles(id),group_id uuid references public.groups(id),type text not null,title text not null,body text not null,data jsonb not null default '{}'::jsonb,read_at timestamptz,created_at timestamptz not null default now());
+create table public.audit_logs(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),actor_user_id uuid references public.profiles(id),entity_type text not null,entity_id uuid not null,action text not null,before_data jsonb,after_data jsonb,created_at timestamptz not null default now());
+create index expenses_group_date on public.expenses(group_id,expense_date);create index payments_group_status_date on public.payments(group_id,status,payment_date);
+create index group_members_group_user on public.group_members(group_id,user_id);create index notifications_user_read on public.notifications(user_id,read_at);create index expense_payers_expense on public.expense_payers(expense_id);create index expense_shares_expense on public.expense_shares(expense_id);
+-- Deferred constraint triggers allow payer/share rows to be inserted in one transaction,
+-- but reject any commit whose final expense totals are inconsistent.
+create or replace function public.assert_expense_totals() returns trigger language plpgsql as $$
+declare target uuid; total bigint; payer_total bigint; share_total bigint;
+begin
+  if tg_table_name = 'expenses' then
+    if tg_op = 'DELETE' then target := old.id; else target := new.id; end if;
+  else
+    if tg_op = 'DELETE' then target := old.expense_id; else target := new.expense_id; end if;
+  end if;
+  select total_amount_satang into total from public.expenses where id=target;
+  if total is null then return null; end if;
+  select coalesce(sum(amount_satang),0) into payer_total from public.expense_payers where expense_id=target;
+  select coalesce(sum(amount_satang),0) into share_total from public.expense_shares where expense_id=target;
+  if payer_total <> total or share_total <> total then raise exception 'expense % violates payer/share total invariant', target using errcode='23514'; end if;
+  return null;
+end $$;
+create constraint trigger expense_total_after_expense after insert or update on public.expenses deferrable initially deferred for each row execute function public.assert_expense_totals();
+create constraint trigger expense_total_after_payer after insert or update or delete on public.expense_payers deferrable initially deferred for each row execute function public.assert_expense_totals();
+create constraint trigger expense_total_after_share after insert or update or delete on public.expense_shares deferrable initially deferred for each row execute function public.assert_expense_totals();
+alter table public.groups enable row level security;alter table public.group_members enable row level security;alter table public.group_invites enable row level security;alter table public.expenses enable row level security;alter table public.expense_payers enable row level security;alter table public.expense_shares enable row level security;alter table public.payments enable row level security;alter table public.payment_proofs enable row level security;alter table public.notifications enable row level security;alter table public.audit_logs enable row level security;
+-- Baseline isolation: application mutations must also verify admin role server-side.
+create policy "members read own group" on public.groups for select using (exists(select 1 from public.group_members m where m.group_id=id and m.user_id=auth.uid() and m.status!='removed'));
+-- One security-definer entry point prevents clients from creating partial financial rows.
+create or replace function public.create_expense_atomic(p_group_id uuid,p_title text,p_expense_date date,p_total_amount_satang bigint,p_split_mode public.split_mode,p_note text,p_payers jsonb,p_shares jsonb) returns uuid language plpgsql security definer set search_path=public as $$
+declare expense_id uuid; actor uuid := auth.uid();
+begin
+  if actor is null or not exists(select 1 from group_members where group_id=p_group_id and user_id=actor and role='admin' and status='active') then raise exception 'not authorized' using errcode='42501'; end if;
+  if p_total_amount_satang<=0 then raise exception 'invalid total' using errcode='23514'; end if;
+  insert into expenses(group_id,title,expense_date,total_amount_satang,split_mode,note,created_by) values(p_group_id,p_title,p_expense_date,p_total_amount_satang,p_split_mode,p_note,actor) returning id into expense_id;
+  insert into expense_payers(expense_id,member_id,amount_satang) select expense_id,(x->>'memberId')::uuid,(x->>'amountSatang')::bigint from jsonb_array_elements(p_payers) x;
+  insert into expense_shares(expense_id,member_id,amount_satang,weight) select expense_id,(x->>'memberId')::uuid,(x->>'amountSatang')::bigint,nullif(x->>'weight','')::integer from jsonb_array_elements(p_shares) x;
+  insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action,after_data) values(p_group_id,actor,'expense',expense_id,'created',jsonb_build_object('total_amount_satang',p_total_amount_satang,'split_mode',p_split_mode));
+  insert into notifications(user_id,group_id,type,title,body,data) select gm.user_id,p_group_id,'expense_created','มีรายจ่ายใหม่',p_title,jsonb_build_object('expense_id',expense_id,'amount_satang',es.amount_satang) from expense_shares es join group_members gm on gm.id=es.member_id where es.expense_id=expense_id and gm.user_id<>actor;
+  return expense_id;
+end $$;
+create or replace function public.create_group_atomic(p_name text,p_description text,p_week_starts_on smallint) returns uuid language plpgsql security definer set search_path=public as $$
+declare group_id uuid; actor uuid:=auth.uid(); begin if actor is null then raise exception 'not authenticated' using errcode='42501'; end if; if length(trim(p_name))=0 or p_week_starts_on not between 0 and 6 then raise exception 'invalid group' using errcode='23514'; end if; insert into groups(name,description,week_starts_on,created_by) values(trim(p_name),p_description,p_week_starts_on,actor) returning id into group_id; insert into group_members(group_id,user_id,role,status) values(group_id,actor,'admin','active'); insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action) values(group_id,actor,'group',group_id,'created'); return group_id; end $$;
+create or replace function public.create_group_invite(p_group_id uuid,p_expires_at timestamptz default now()+interval '7 days') returns text language plpgsql security definer set search_path=public as $$
+declare actor uuid:=auth.uid(); token text:=encode(gen_random_bytes(18),'hex'); begin if actor is null or not exists(select 1 from group_members where group_id=p_group_id and user_id=actor and role='admin' and status='active') then raise exception 'not authorized' using errcode='42501'; end if; if p_expires_at<=now() then raise exception 'invalid expiry' using errcode='23514'; end if; insert into group_invites(group_id,token_hash,expires_at,created_by) values(p_group_id,encode(digest(token,'sha256'),'hex'),p_expires_at,actor); insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action) values(p_group_id,actor,'invite',p_group_id,'created'); return token; end $$;
+create or replace function public.accept_group_invite(p_token text,p_pin text) returns uuid language plpgsql security definer set search_path=public as $$
+declare actor uuid:=auth.uid(); invite group_invites%rowtype; member_id uuid; begin if actor is null then raise exception 'not authenticated' using errcode='42501'; end if; if p_pin !~ '^[0-9]{4,12}$' then raise exception 'invalid pin' using errcode='23514'; end if; select * into invite from group_invites where token_hash=encode(digest(p_token,'sha256'),'hex') and revoked_at is null and expires_at>now() and used_count<max_uses for update; if not found then raise exception 'invite unavailable' using errcode='P0002'; end if; insert into group_members(group_id,user_id,role,status,pin_hash) values(invite.group_id,actor,invite.role,'active',crypt(p_pin,gen_salt('bf'))) on conflict(group_id,user_id) do update set status='active',pin_hash=excluded.pin_hash returning id into member_id; update group_invites set used_count=used_count+1 where id=invite.id; insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action) values(invite.group_id,actor,'member',member_id,'joined'); return invite.group_id; end $$;
+create or replace function public.create_payment_atomic(p_group_id uuid,p_from_member_id uuid,p_to_member_id uuid,p_amount_satang bigint,p_payment_date date,p_settlement_mode public.settlement_mode) returns uuid language plpgsql security definer set search_path=public as $$
+declare payment_id uuid; actor uuid:=auth.uid();
+begin
+ if actor is null or not exists(select 1 from group_members where group_id=p_group_id and user_id=actor and id=p_from_member_id and status='active') then raise exception 'not authorized' using errcode='42501'; end if;
+ if not exists(select 1 from group_members where group_id=p_group_id and id=p_to_member_id and status='active') then raise exception 'invalid recipient' using errcode='23503'; end if;
+ insert into payments(group_id,from_member_id,to_member_id,amount_satang,payment_date,settlement_mode,submitted_by) values(p_group_id,p_from_member_id,p_to_member_id,p_amount_satang,p_payment_date,p_settlement_mode,actor) returning id into payment_id;
+ insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action,after_data) values(p_group_id,actor,'payment',payment_id,'created',jsonb_build_object('amount_satang',p_amount_satang));
+ insert into notifications(user_id,group_id,type,title,body,data) select user_id,p_group_id,'payment_pending','มีรายการชำระเงินรอตรวจ','สมาชิกแจ้งชำระเงินแล้ว',jsonb_build_object('payment_id',payment_id) from group_members where id=p_to_member_id; return payment_id;
+end $$;
+create or replace function public.decide_payment(p_payment_id uuid,p_status public.payment_status,p_rejection_reason text default null) returns void language plpgsql security definer set search_path=public as $$
+declare actor uuid:=auth.uid(); payment_row payments%rowtype;
+begin
+ select * into payment_row from payments where id=p_payment_id for update; if not found then raise exception 'payment not found' using errcode='P0002'; end if;
+ if p_status not in ('confirmed','rejected') or (p_status='rejected' and coalesce(trim(p_rejection_reason),'')='') then raise exception 'invalid decision' using errcode='23514'; end if;
+ if not exists(select 1 from group_members where group_id=payment_row.group_id and user_id=actor and status='active' and (id=payment_row.to_member_id or role='admin')) then raise exception 'not authorized' using errcode='42501'; end if;
+ if payment_row.status <> 'submitted' then raise exception 'payment must be submitted first' using errcode='23514'; end if;
+ update payments set status=p_status,confirmed_by=actor,confirmed_at=now(),rejection_reason=case when p_status='rejected' then p_rejection_reason else null end where id=p_payment_id;
+ insert into audit_logs(group_id,actor_user_id,entity_type,entity_id,action,after_data) values(payment_row.group_id,actor,'payment',p_payment_id,p_status,jsonb_build_object('rejection_reason',p_rejection_reason));
+ insert into notifications(user_id,group_id,type,title,body,data) select user_id,payment_row.group_id,case when p_status='confirmed' then 'payment_confirmed' else 'payment_rejected' end,case when p_status='confirmed' then 'ยืนยันการชำระเงินแล้ว' else 'ปฏิเสธการชำระเงิน' end,case when p_status='confirmed' then 'ยอดของคุณได้รับการยืนยันแล้ว' else p_rejection_reason end,jsonb_build_object('payment_id',p_payment_id) from group_members where id=payment_row.from_member_id;
+end $$;
+
+create policy "users read own notifications" on public.notifications for select using (user_id=auth.uid());
+create policy "users mark own notifications read" on public.notifications for update using (user_id=auth.uid()) with check (user_id=auth.uid());
