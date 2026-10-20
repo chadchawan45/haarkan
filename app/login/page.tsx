@@ -50,6 +50,8 @@ function LoginForm() {
           m.id.toLowerCase() === cleanInput
       );
 
+      const redirectUrl = searchParams.get("redirect") || "/";
+
       // กรณีพิเศษสำหรับบัญชีเจ้าของระบบ golf2545mc@gmail.com หากยังไม่พบให้ลงทะเบียนเข้าสู่ระบบทันที
       if (!found && (cleanInput === "golf2545mc@gmail.com" || cleanInput.includes("golf"))) {
         found = registerMember({
@@ -60,7 +62,7 @@ function LoginForm() {
           role: "admin",
         });
         login(found.id);
-        router.push("/");
+        router.push(redirectUrl);
         return;
       }
 
@@ -69,7 +71,7 @@ function LoginForm() {
         if (!found.password || found.password === "google_oauth_user") {
           updateProfile(found.id, { password: password.trim() });
           login(found.id);
-          router.push("/");
+          router.push(redirectUrl);
           return;
         }
 
@@ -78,7 +80,7 @@ function LoginForm() {
           return;
         }
         login(found.id);
-        router.push("/");
+        router.push(redirectUrl);
       } else {
         setNotFoundEmail(cleanInput);
         setError(`ยังไม่พบบัญชีที่ใช้อีเมล "${email.trim()}" ในระบบ`);
@@ -123,6 +125,26 @@ function LoginForm() {
           >
             <span>✓</span>
             <span>สมัครสมาชิกสำเร็จแล้ว! กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่านของคุณ</span>
+          </div>
+        )}
+
+        {searchParams.get("redirect") && (
+          <div
+            style={{
+              background: "#eff6ff",
+              color: "#1e40af",
+              border: "1px solid #bfdbfe",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              fontSize: "13px",
+              marginBottom: "18px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>🔗</span>
+            <span>คุณได้รับคำเชิญเข้าร่วมกลุ่ม กรุณาเข้าสู่ระบบก่อนเพื่อตอบรับคำเชิญ</span>
           </div>
         )}
 
@@ -194,7 +216,11 @@ function LoginForm() {
                   {notFoundEmail && (
                     <div style={{ marginTop: "8px" }}>
                       <Link
-                        href={`/register?email=${encodeURIComponent(notFoundEmail)}`}
+                        href={
+                          searchParams.get("redirect")
+                            ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}&email=${encodeURIComponent(notFoundEmail)}`
+                            : `/register?email=${encodeURIComponent(notFoundEmail)}`
+                        }
                         className="primary"
                         style={{
                           display: "inline-block",
@@ -226,7 +252,11 @@ function LoginForm() {
         <div style={{ textAlign: "center", marginTop: "18px", fontSize: "13px" }}>
           ยังไม่มีบัญชีผู้ใช้?{" "}
           <Link
-            href={email ? `/register?email=${encodeURIComponent(email)}` : "/register"}
+            href={
+              searchParams.get("redirect")
+                ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}${email ? `&email=${encodeURIComponent(email)}` : ""}`
+                : (email ? `/register?email=${encodeURIComponent(email)}` : "/register")
+            }
             className="link"
             style={{ fontWeight: 700 }}
           >

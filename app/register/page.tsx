@@ -79,7 +79,8 @@ function RegisterForm() {
 
       // เข้าสู่ระบบให้อัตโนมัติทันที
       login(newMember.id);
-      router.push("/");
+      const redirectUrl = searchParams.get("redirect") || "/";
+      router.push(redirectUrl);
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
     } finally {
@@ -102,6 +103,26 @@ function RegisterForm() {
             สมัครสมาชิกเพื่อเริ่มหารค่าใช้จ่ายและเคลียร์เงินในกลุ่ม
           </p>
         </div>
+
+        {searchParams.get("redirect") && (
+          <div
+            style={{
+              background: "#eff6ff",
+              color: "#1e40af",
+              border: "1px solid #bfdbfe",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              fontSize: "13px",
+              marginBottom: "16px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}
+          >
+            <span style={{ fontSize: "16px" }}>🔗</span>
+            <span>คุณได้รับคำเชิญเข้าร่วมกลุ่ม กรุณาสมัครสมาชิกก่อน เมื่อสมัครเสร็จระบบจะนำคุณกลับไปตอบรับคำเชิญทันที</span>
+          </div>
+        )}
 
         {error && (
           <div
@@ -242,7 +263,15 @@ function RegisterForm() {
 
         <div style={{ textAlign: "center", marginTop: "18px", fontSize: "13px" }}>
           มีบัญชีผู้ใช้อยู่แล้ว?{" "}
-          <Link href="/login" className="link" style={{ fontWeight: 700 }}>
+          <Link
+            href={
+              searchParams.get("redirect")
+                ? `/login?redirect=${encodeURIComponent(searchParams.get("redirect")!)}`
+                : "/login"
+            }
+            className="link"
+            style={{ fontWeight: 700 }}
+          >
             เข้าสู่ระบบด้วยอีเมลที่นี่ ➔
           </Link>
         </div>
