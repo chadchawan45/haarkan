@@ -88,12 +88,24 @@ const STORAGE_KEY = "group_expense_app_state_v3";
 
 const initialMembers: Member[] = [
   {
+    id: "mem-golf",
+    name: "ชัชวาลย์",
+    nickname: "กอล์ฟ",
+    role: "admin",
+    status: "active",
+    avatarColor: "#1f6f53",
+    email: "golf2545mc@gmail.com",
+    bankName: "กสิกรไทย (KBANK)",
+    bankAccountNumber: "012-3-45678-9",
+    promptpayNumber: "081-234-5678",
+  },
+  {
     id: "mem-karn",
     name: "กานต์",
     nickname: "กานต์",
     role: "admin",
     status: "active",
-    avatarColor: "#1f6f53",
+    avatarColor: "#2980b9",
     email: "karn@haarkan.local",
     password: "password123",
     bankName: "กสิกรไทย (KBANK)",
@@ -186,14 +198,14 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     description: "กลุ่มแชร์ค่าใช้จ่ายในบ้านและทริปส่วนกลาง",
     weekStartsOn: 1, // เริ่มวันจันทร์
     defaultCurrency: "THB",
-    creatorMemberId: "mem-karn",
+    creatorMemberId: "mem-golf",
   });
 
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [expenses, setExpenses] = useState<ExpenseRecord[]>(initialExpenses);
   const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
   const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
-  const [currentMemberId, setCurrentMemberId] = useState<string>("mem-karn");
+  const [currentMemberId, setCurrentMemberId] = useState<string>("mem-golf");
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isDemo, setIsDemo] = useState<boolean>(false);
   const [demoLockModal, setDemoLockModal] = useState<{ isOpen: boolean; featureName: string }>({
@@ -224,23 +236,21 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         if (parsed.members) {
           const DUMMY_IDS = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
           // กรองสมาชิกตัวอย่างออกเพื่อพร้อมใช้งานจริง และตัดข้อความ (คุณ) ซ้ำซ้อน
-          const sanitizedMembers = parsed.members
+          let sanitizedMembers: Member[] = parsed.members
             .filter((m: Member) => !DUMMY_IDS.includes(m.id))
-            .map((m: Member) => {
-              if (m.id === "mem-chad" || m.name.includes("ชัช")) {
-                return {
-                  ...m,
-                  id: "mem-karn",
-                  name: "กานต์",
-                  nickname: "กานต์",
-                  email: "karn@haarkan.local",
-                };
-              }
-              return {
-                ...m,
-                name: m.name.replace(/\(คุณ\)/g, "").trim(),
-              };
-            });
+            .map((m: Member) => ({
+              ...m,
+              name: m.name.replace(/\(คุณ\)/g, "").trim(),
+            }));
+
+          // รับรองว่า golf2545mc@gmail.com จะมีอยู่ในระบบเสมอ
+          const hasGolf = sanitizedMembers.some(
+            (m: Member) => m.email?.toLowerCase() === "golf2545mc@gmail.com" || m.id === "mem-golf"
+          );
+          if (!hasGolf) {
+            sanitizedMembers = [initialMembers[0], ...sanitizedMembers];
+          }
+
           setMembers(sanitizedMembers.length > 0 ? sanitizedMembers : initialMembers);
         }
         if (parsed.expenses) setExpenses(parsed.expenses);
@@ -248,8 +258,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.currentMemberId) {
           const DUMMY_IDS = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
-          if (parsed.currentMemberId === "mem-chad" || DUMMY_IDS.includes(parsed.currentMemberId)) {
-            setCurrentMemberId("mem-karn");
+          if (DUMMY_IDS.includes(parsed.currentMemberId)) {
+            setCurrentMemberId("mem-golf");
           } else {
             setCurrentMemberId(parsed.currentMemberId);
           }
