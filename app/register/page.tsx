@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useGroup } from "@/lib/group-context";
 import { PasswordInput } from "@/components/PasswordInput";
-import { GoogleLoginButton } from "@/components/GoogleLoginButton";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
-  const { registerMember } = useGroup();
+  const searchParams = useSearchParams();
+  const { members, registerMember, login } = useGroup();
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
@@ -18,18 +18,50 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   const [error, setError] = useState("");
+  const [existingUser, setExistingUser] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const qEmail = searchParams.get("email");
+    if (qEmail) {
+      setEmail(qEmail);
+    }
+  }, [searchParams]);
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setExistingUser(false);
 
-    if (!name.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanName = name.trim();
+
+    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      setError("กรุณาระบุอีเมลที่ถูกต้อง (เช่น yourname@gmail.com)");
+      return;
+    }
+
+    if (!cleanName) {
       setError("กรุณาระบุชื่อ-นามสกุล");
       return;
     }
 
-    if (password && confirmPassword && password !== confirmPassword) {
+    // ตรวจสอบอีเมลซ้ำในระบบ
+    const duplicate = members.find(
+      (m) => m.email && m.email.toLowerCase() === cleanEmail
+    );
+    if (duplicate) {
+      setExistingUser(true);
+      setError(`อีเมล "${cleanEmail}" มีผู้ใช้งานในระบบแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลนี้`);
+      return;
+    }
+
+    if (!password || password.length < 4) {
+      setError("รหัสผ่านควรมีความยาวอย่างน้อย 4 ตัวอักษร");
+      return;
+    }
+
+    if (password !== confirmPassword) {
       setError("รหัสผ่านและการยืนยันรหัสผ่านไม่ตรงกัน");
       return;
     }
@@ -37,14 +69,16 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      registerMember({
-        name: name.trim(),
-        nickname: nickname.trim() || undefined,
-        email: email.trim() || undefined,
-        password: password.trim() || undefined,
+      const newMember = registerMember({
+        name: cleanName,
+        nickname: nickname.trim() || cleanName.split(" ")[0],
+        email: cleanEmail,
+        password: password.trim(),
         role: "member",
       });
 
+      // เข้าสู่ระบบให้อัตโนมัติทันที
+      login(newMember.id);
       router.push("/");
     } catch (err: any) {
       setError(err.message || "เกิดข้อผิดพลาดในการสมัครสมาชิก");
@@ -55,36 +89,18 @@ export default function RegisterPage() {
 
   return (
     <main className="shell">
-      <div style={{ maxWidth: "520px", margin: "40px auto" }} className="card">
+      <div style={{ maxWidth: "500px", margin: "40px auto" }} className="card">
         <div style={{ textAlign: "center", marginBottom: "24px" }}>
           <Link href="/" className="brand" style={{ justifyContent: "center", fontSize: "32px" }}>
             หาร<i>กัน</i>
           </Link>
-          <p style={{ color: "#6a766e", fontSize: "14px", marginTop: "6px" }}>
-            สมัครสมาชิกเพื่อร่วมกลุ่มหารค่าใช้จ่ายได้อย่างสะดวกรวดเร็ว
+          <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "14px", marginTop: "6px" }}>
+            ระบบจัดการค่าใช้จ่ายกลุ่ม (Group Expense Manager)
           </p>
-          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>สร้างบัญชีผู้ใช้ใหม่</h2>
-        </div>
-
-        {/* สมัครด่วนด้วย Google */}
-        <div style={{ marginBottom: "20px" }}>
-          <GoogleLoginButton text="สมัครสมาชิกและเข้าสู่ระบบด้วย Google" />
-        </div>
-
-        {/* เส้นคั่นตัวเลือก */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            margin: "0 0 20px",
-            gap: "12px",
-          }}
-        >
-          <div style={{ flex: 1, height: "1px", background: "var(--border, #eef0ed)" }} />
-          <span style={{ fontSize: "12px", color: "var(--muted, #6a766e)", fontWeight: 500 }}>
-            หรือกรอกข้อมูลสมัครสมาชิก
-          </span>
-          <div style={{ flex: 1, height: "1px", background: "var(--border, #eef0ed)" }} />
+          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>สร้างบัญชีผู้ใช้ด้วยอีเมล</h2>
+          <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "13px", margin: "6px 0 0" }}>
+            สมัครสมาชิกเพื่อเริ่มหารค่าใช้จ่ายและเคลียร์เงินในกลุ่ม
+          </p>
         </div>
 
         {error && (
@@ -92,38 +108,74 @@ export default function RegisterPage() {
             style={{
               background: "#fdf2f2",
               color: "#c0392b",
-              padding: "10px 14px",
-              borderRadius: "8px",
+              padding: "12px 14px",
+              borderRadius: "10px",
               fontSize: "13px",
               marginBottom: "16px",
+              border: "1px solid #fecaca",
             }}
           >
-            ⚠️ {error}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+              <span style={{ fontSize: "16px" }}>⚠️</span>
+              <div style={{ flex: 1 }}>
+                <div>{error}</div>
+                {existingUser && (
+                  <div style={{ marginTop: "8px" }}>
+                    <Link
+                      href={`/login?email=${encodeURIComponent(email.trim().toLowerCase())}`}
+                      className="primary"
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 12px",
+                        fontSize: "12px",
+                        borderRadius: "6px",
+                        textDecoration: "none",
+                      }}
+                    >
+                      ➔ ไปหน้าเข้าสู่ระบบด้วยอีเมลนี้
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         <form onSubmit={handleRegister}>
-          {/* ข้อมูลประจำตัว */}
           <div style={{ marginBottom: "20px" }}>
-            <h4 style={{ margin: "0 0 14px", color: "#1f6f53", fontSize: "15px" }}>
-              👤 ข้อมูลประจำตัว
-            </h4>
+            {/* อีเมลจริง */}
+            <label className="field">
+              <span>อีเมลจริงสำหรับเข้าใช้งาน (Email) <span style={{ color: "#d9483b" }}>*</span></span>
+              <input
+                type="email"
+                placeholder="เช่น yourname@gmail.com หรือ somchai@example.com"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (existingUser) setExistingUser(false);
+                }}
+                required
+                autoFocus
+                autoComplete="email"
+              />
+            </label>
 
+            {/* ชื่อและชื่อเล่น */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label className="field">
-                ชื่อ-นามสกุล <span style={{ color: "#d9483b" }}>*</span>
+                <span>ชื่อ-นามสกุล <span style={{ color: "#d9483b" }}>*</span></span>
                 <input
                   type="text"
                   placeholder="เช่น สมชาย ใจดี"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  autoFocus
+                  autoComplete="name"
                 />
               </label>
 
               <label className="field">
-                ชื่อเล่น (สำหรับแสดงในกลุ่ม)
+                <span>ชื่อเล่น (แสดงในกลุ่ม)</span>
                 <input
                   type="text"
                   placeholder="เช่น ชาย, โต้ง"
@@ -133,72 +185,90 @@ export default function RegisterPage() {
               </label>
             </div>
 
-            <label className="field">
-              อีเมล หรือ ชื่อผู้ใช้
-              <input
-                type="text"
-                placeholder="somchai@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-
+            {/* รหัสผ่านและยืนยัน */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
               <label className="field">
-                รหัสผ่าน
+                <span>รหัสผ่าน <span style={{ color: "#d9483b" }}>*</span></span>
                 <PasswordInput
-                  placeholder="••••••••"
+                  placeholder="อย่างน้อย 4 ตัวอักษร"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
                 />
               </label>
 
               <label className="field">
-                ยืนยันรหัสผ่าน
+                <span>ยืนยันรหัสผ่าน <span style={{ color: "#d9483b" }}>*</span></span>
                 <PasswordInput
-                  placeholder="••••••••"
+                  placeholder="พิมพ์ให้ตรงกัน"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  autoComplete="new-password"
                 />
               </label>
             </div>
           </div>
 
-          {/* กล่องข้อความแนะนำการเพิ่มบัญชีรับเงินในภายหลัง */}
+          {/* กล่องคำแนะนำ */}
           <div
             style={{
-              marginBottom: "24px",
-              padding: "14px 16px",
-              borderRadius: "12px",
-              background: "rgba(31, 111, 83, 0.06)",
+              marginBottom: "22px",
+              padding: "12px 14px",
+              borderRadius: "10px",
+              background: "rgba(31, 111, 83, 0.05)",
               border: "1px dashed rgba(31, 111, 83, 0.25)",
               display: "flex",
-              alignItems: "flex-start",
-              gap: "12px",
+              alignItems: "center",
+              gap: "10px",
             }}
           >
-            <span style={{ fontSize: "22px", lineHeight: 1 }}>💳</span>
-            <div style={{ fontSize: "13px", color: "#3a4a40", lineHeight: 1.5 }}>
-              <strong style={{ color: "#1f6f53" }}>ข้อมูลบัญชีธนาคาร & คิวอาร์โค้ดรับเงิน:</strong>
-              <p style={{ margin: "4px 0 0", color: "#55645c" }}>
-                คุณสามารถเพิ่มเลขที่บัญชีธนาคาร พร้อมเพย์ หรืออัปโหลดรูปภาพ QR Code สำหรับรับเงินโอนจากเพื่อนได้ตลอดเวลาในหน้า{" "}
-                <strong style={{ color: "#1f6f53" }}>&quot;ตั้งค่าโปรไฟล์&quot;</strong> หลังจากเข้าสู่ระบบ
-              </p>
+            <span style={{ fontSize: "20px", lineHeight: 1 }}>💳</span>
+            <div style={{ fontSize: "12px", color: "var(--text-muted, #55645c)", lineHeight: 1.5 }}>
+              คุณสามารถเพิ่มเลขบัญชีธนาคาร พร้อมเพย์ หรือรูป QR Code รับเงินได้ในหน้า <strong>&quot;โปรไฟล์&quot;</strong> ภายหลังเข้าสู่ระบบ
             </div>
           </div>
 
-          <button type="submit" className="primary full-btn" disabled={loading} style={{ padding: "12px", fontWeight: 700 }}>
-            {loading ? "กำลังสร้างบัญชี..." : "✓ สมัครสมาชิกและเข้าใช้งานทันที"}
+          <button
+            type="submit"
+            className="primary full-btn"
+            disabled={loading}
+            style={{ padding: "12px", fontWeight: 700, fontSize: "15px" }}
+          >
+            {loading ? "กำลังสร้างบัญชี..." : "✓ สมัครสมาชิกและเข้าสู่ระบบทันที"}
           </button>
         </form>
 
-        <div style={{ textAlign: "center", marginTop: "20px", fontSize: "13px" }}>
-          มีบัญชีอยู่แล้ว?{" "}
-          <Link href="/login" className="link" style={{ fontWeight: 600 }}>
-            เข้าสู่ระบบที่นี่
+        <div style={{ textAlign: "center", marginTop: "18px", fontSize: "13px" }}>
+          มีบัญชีผู้ใช้อยู่แล้ว?{" "}
+          <Link href="/login" className="link" style={{ fontWeight: 700 }}>
+            เข้าสู่ระบบด้วยอีเมลที่นี่ ➔
+          </Link>
+        </div>
+
+        <div style={{ textAlign: "center", marginTop: "14px" }}>
+          <Link href="/" className="link" style={{ fontSize: "13px" }}>
+            ← กลับสู่หน้าหลัก
           </Link>
         </div>
       </div>
     </main>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="shell">
+          <div className="card" style={{ maxWidth: "500px", margin: "40px auto", textAlign: "center", padding: "40px" }}>
+            กำลังโหลด...
+          </div>
+        </main>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }

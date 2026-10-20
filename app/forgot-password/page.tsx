@@ -122,10 +122,10 @@ export default function ForgotPasswordPage() {
             </p>
 
             <label className="field">
-              ชื่อผู้ใช้, ชื่อเล่น หรือ อีเมล
+              อีเมล หรือ ชื่อผู้ใช้ (Email / Username)
               <input
                 type="text"
-                placeholder="เช่น กานต์, มิน หรือ karn@haarkan.local"
+                placeholder="เช่น yourname@gmail.com หรือ karn@haarkan.local"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 autoFocus
@@ -143,7 +143,7 @@ export default function ForgotPasswordPage() {
                   <button
                     key={m.id}
                     type="button"
-                    onClick={() => setIdentifier(m.nickname || m.name)}
+                    onClick={() => setIdentifier(m.email || m.nickname || m.name)}
                     style={{
                       background: "rgba(31, 111, 83, 0.08)",
                       border: "1px solid rgba(31, 111, 83, 0.2)",
@@ -155,7 +155,7 @@ export default function ForgotPasswordPage() {
                       fontWeight: 500,
                     }}
                   >
-                    {m.nickname || m.name}
+                    {m.email || m.nickname || m.name}
                   </button>
                 ))}
               </div>
