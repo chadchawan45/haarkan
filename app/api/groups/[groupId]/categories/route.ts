@@ -16,6 +16,19 @@ export async function GET(
       return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
     }
 
+    // ตรวจสอบว่า user เป็นสมาชิกของกลุ่ม
+    const { data: membership } = await supabase
+      .from("group_members")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("user_id", user.id)
+      .neq("status", "removed")
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงกลุ่มนี้" }, { status: 403 });
+    }
+
     // ดึงหมวดหมู่ที่เป็น global (group_id is null) หรือของกลุ่มนี้โดยเฉพาะ
     const { data: categories, error } = await supabase
       .from("expense_categories")

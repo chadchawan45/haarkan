@@ -153,7 +153,6 @@ const initialMembers: Member[] = [
     status: "active",
     avatarColor: "#2980b9",
     email: "karn@haarkan.local",
-    password: "password123",
     bankName: "กสิกรไทย (KBANK)",
     bankAccountNumber: "012-3-45678-9",
     promptpayNumber: "081-234-5678",
@@ -166,7 +165,6 @@ const initialMembers: Member[] = [
     status: "active",
     avatarColor: "#e67e22",
     email: "0928919213t@gmail.com",
-    password: "password123",
     promptpayNumber: "092-891-9213",
   },
 ];
@@ -377,12 +375,24 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Save to localStorage on changes
+  // Save to localStorage on changes (sanitize members so passwords are never stored in plaintext)
   useEffect(() => {
     try {
+      const sanitizedMembers = members.map(({ password: _, ...rest }) => rest);
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo })
+        JSON.stringify({
+          groups,
+          currentGroupId,
+          group,
+          members: sanitizedMembers,
+          expenses,
+          payments,
+          notifications,
+          currentMemberId,
+          isAuthenticated,
+          isDemo,
+        })
       );
     } catch (e) {
       console.warn("Could not write to local storage:", e);
@@ -592,24 +602,25 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === expenseId ? { ...e, status: "voided", voidReason: reason } : e))
-    );
-
-    const exp = expenses.find((e) => e.id === expenseId);
-    if (exp) {
-      setNotifications((prev) => [
-        {
-          id: `notif-${Date.now()}`,
-          title: "ยกเลิกรายจ่าย",
-          body: `รายการ "${exp.title}" ถูกยกเลิกโดยผู้ดูแล: ${reason}`,
-          type: "expense_voided",
-          read: false,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    }
+    setExpenses((prev) => {
+      const exp = prev.find((e) => e.id === expenseId);
+      if (exp) {
+        setNotifications((notifs) => [
+          {
+            id: `notif-${Date.now()}`,
+            title: "ยกเลิกรายจ่าย",
+            body: `รายการ "${exp.title}" ถูกยกเลิกโดยผู้ดูแล: ${reason}`,
+            type: "expense_voided",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...notifs,
+        ]);
+      }
+      return prev.map((e) =>
+        e.id === expenseId ? { ...e, status: "voided", voidReason: reason } : e
+      );
+    });
   };
 
   const createPayment = (
@@ -645,8 +656,23 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setPayments((prev) =>
-      prev.map((p) =>
+    setPayments((prev) => {
+      const payment = prev.find((p) => p.id === paymentId);
+      if (payment) {
+        const fromName = members.find((m) => m.id === payment.fromMemberId)?.name ?? "สมาชิก";
+        setNotifications((notifs) => [
+          {
+            id: `notif-${Date.now()}`,
+            title: "มีสลิปการชำระเงินรอตรวจสอบ",
+            body: `${fromName} แจ้งชำระเงิน ${formatTHB(payment.amountSatang)} และแนบสลิปแล้ว`,
+            type: "payment_submitted",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...notifs,
+        ]);
+      }
+      return prev.map((p) =>
         p.id === paymentId
           ? {
               ...p,
@@ -659,24 +685,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
               },
             }
           : p
-      )
-    );
-
-    const payment = payments.find((p) => p.id === paymentId);
-    if (payment) {
-      const fromName = members.find((m) => m.id === payment.fromMemberId)?.name ?? "สมาชิก";
-      setNotifications((prev) => [
-        {
-          id: `notif-${Date.now()}`,
-          title: "มีสลิปการชำระเงินรอตรวจสอบ",
-          body: `${fromName} แจ้งชำระเงิน ${formatTHB(payment.amountSatang)} และแนบสลิปแล้ว`,
-          type: "payment_submitted",
-          read: false,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    }
+      );
+    });
   };
 
   const confirmPayment = (paymentId: string) => {
@@ -685,28 +695,27 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setPayments((prev) =>
-      prev.map((p) =>
+    setPayments((prev) => {
+      const payment = prev.find((p) => p.id === paymentId);
+      if (payment) {
+        setNotifications((notifs) => [
+          {
+            id: `notif-${Date.now()}`,
+            title: "ยืนยันการชำระเงินเรียบร้อยแล้ว",
+            body: `การชำระเงิน ${formatTHB(payment.amountSatang)} ได้รับการยืนยันแล้ว ยอดหนี้ปรับลดทันที`,
+            type: "payment_confirmed",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...notifs,
+        ]);
+      }
+      return prev.map((p) =>
         p.id === paymentId
           ? { ...p, status: "confirmed", confirmedAt: new Date().toISOString() }
           : p
-      )
-    );
-
-    const payment = payments.find((p) => p.id === paymentId);
-    if (payment) {
-      setNotifications((prev) => [
-        {
-          id: `notif-${Date.now()}`,
-          title: "ยืนยันการชำระเงินเรียบร้อยแล้ว",
-          body: `การชำระเงิน ${formatTHB(payment.amountSatang)} ได้รับการยืนยันแล้ว ยอดหนี้ปรับลดทันที`,
-          type: "payment_confirmed",
-          read: false,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    }
+      );
+    });
   };
 
   const rejectPayment = (paymentId: string, reason: string) => {
@@ -715,28 +724,27 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setPayments((prev) =>
-      prev.map((p) =>
+    setPayments((prev) => {
+      const payment = prev.find((p) => p.id === paymentId);
+      if (payment) {
+        setNotifications((notifs) => [
+          {
+            id: `notif-${Date.now()}`,
+            title: "สลิปการชำระเงินถูกปฏิเสธ",
+            body: `รายการ ${formatTHB(payment.amountSatang)} ถูกปฏิเสธ: ${reason}`,
+            type: "payment_rejected",
+            read: false,
+            createdAt: new Date().toISOString(),
+          },
+          ...notifs,
+        ]);
+      }
+      return prev.map((p) =>
         p.id === paymentId
           ? { ...p, status: "rejected", rejectionReason: reason }
           : p
-      )
-    );
-
-    const payment = payments.find((p) => p.id === paymentId);
-    if (payment) {
-      setNotifications((prev) => [
-        {
-          id: `notif-${Date.now()}`,
-          title: "สลิปการชำระเงินถูกปฏิเสธ",
-          body: `รายการ ${formatTHB(payment.amountSatang)} ถูกปฏิเสธ: ${reason}`,
-          type: "payment_rejected",
-          read: false,
-          createdAt: new Date().toISOString(),
-        },
-        ...prev,
-      ]);
-    }
+      );
+    });
   };
 
   const markNotificationRead = (id: string) => {

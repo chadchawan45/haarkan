@@ -1,5 +1,65 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-const schema = z.object({ status: z.enum(["confirmed", "rejected"]), rejectionReason: z.string().trim().min(1).max(500).optional() }).superRefine((x, ctx) => { if (x.status === "rejected" && !x.rejectionReason) ctx.addIssue({ code: "custom", path: ["rejectionReason"], message: "ต้องระบุเหตุผล" }); });
-export async function POST(request: NextRequest, context: { params: Promise<{ paymentId: string }> }) { const { paymentId } = await context.params; const parsed = schema.safeParse(await request.json()); if (!parsed.success) return NextResponse.json({ error: "ข้อมูลการตัดสินใจไม่ถูกต้อง" }, { status: 400 }); const supabase = await createSupabaseServerClient(); const { data: { user } } = await supabase.auth.getUser(); if (!user) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 }); const { error } = await supabase.rpc("decide_payment", { p_payment_id: paymentId, p_status: parsed.data.status, p_rejection_reason: parsed.data.rejectionReason ?? null }); return error ? NextResponse.json({ error: error.message }, { status: error.code === "42501" ? 403 : 422 }) : NextResponse.json({ ok: true }); }
+
+const decisionSchema = z
+  .object({
+    status: z.enum(["confirmed", "rejected"]),
+    rejectionReason: z.string().trim().min(1).max(500).optional(),
+  })
+  .superRefine((x, ctx) => {
+    if (x.status === "rejected" && !x.rejectionReason) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["rejectionReason"],
+        message: "ต้องระบุเหตุผล",
+      });
+    }
+  });
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ paymentId: string }> }
+) {
+  try {
+    const { paymentId } = await context.params;
+    const body = await request.json();
+    const parsed = decisionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "ข้อมูลการตัดสินใจไม่ถูกต้อง" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+    }
+
+    const { error } = await supabase.rpc("decide_payment", {
+      p_payment_id: paymentId,
+      p_status: parsed.data.status,
+      p_rejection_reason: parsed.data.rejectionReason ?? null,
+    });
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.code === "42501" ? 403 : 422 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message ?? "เกิดข้อผิดพลาดในการตัดสินใจชำระเงิน" },
+      { status: 500 }
+    );
+  }
+}

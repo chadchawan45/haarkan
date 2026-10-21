@@ -12,7 +12,10 @@ export function verifyLineSignature(body: string, signature: string | null): boo
   if (!secret || !signature) return false;
 
   const hash = crypto.createHmac("sha256", secret).update(body).digest("base64");
-  return hash === signature;
+  const hashBuf = Buffer.from(hash);
+  const sigBuf = Buffer.from(signature);
+  if (hashBuf.length !== sigBuf.length) return false;
+  return crypto.timingSafeEqual(hashBuf, sigBuf);
 }
 
 /**

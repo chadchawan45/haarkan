@@ -79,3 +79,73 @@ export async function GET(
     return NextResponse.json({ error: err.message ?? "เกิดข้อผิดพลาด" }, { status: 500 });
   }
 }
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ paymentId: string }> }
+) {
+  try {
+    const { paymentId } = await context.params;
+    const body = await request.json();
+
+    const { storagePath, filename, mimeType, sizeBytes } = body;
+    if (!storagePath || !filename || !mimeType || !sizeBytes) {
+      return NextResponse.json(
+        { error: "ข้อมูลหลักฐานการโอนเงินไม่ครบถ้วน (storagePath, filename, mimeType, sizeBytes)" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+    }
+
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("id, group_id, from_member_id")
+      .eq("id", paymentId)
+      .single();
+
+    if (!payment) {
+      return NextResponse.json({ error: "ไม่พบรายการชำระเงิน" }, { status: 404 });
+    }
+
+    const { data: member } = await supabase
+      .from("group_members")
+      .select("id")
+      .eq("id", payment.from_member_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!member) {
+      return NextResponse.json({ error: "เฉพาะผู้จ่ายเงินเท่านั้นที่สามารถบันทึกสลิปได้" }, { status: 403 });
+    }
+
+    const { data: proof, error } = await supabase
+      .from("payment_proofs")
+      .insert({
+        payment_id: paymentId,
+        storage_path: storagePath,
+        original_filename: filename,
+        mime_type: mimeType,
+        size_bytes: sizeBytes,
+        uploaded_by: user.id,
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    return NextResponse.json({ ok: true, proofId: proof.id }, { status: 201 });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message ?? "เกิดข้อผิดพลาด" }, { status: 500 });
+  }
+}
+

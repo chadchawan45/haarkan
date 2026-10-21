@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ paymentId: string }> }
 ) {
   try {
@@ -36,6 +36,41 @@ export async function POST(
 
     if (!fromMember) {
       return NextResponse.json({ error: "เฉพาะผู้จ่ายเงินเท่านั้นที่สามารถส่งตรวจสลิปได้" }, { status: 403 });
+    }
+
+    // ตรวจสอบว่าสถานะปัจจุบันอนุญาตให้ submit ได้
+    if (payment.status !== "pending_proof" && payment.status !== "rejected") {
+      return NextResponse.json(
+        { error: "ไม่สามารถส่งสลิปได้ในสถานะนี้ (สถานะปัจจุบัน: " + payment.status + ")" },
+        { status: 422 }
+      );
+    }
+
+    // ตรวจสอบว่ามีหลักฐานสลิปแนบอยู่ หรือส่งมาพร้อมคำขอนี้
+    const body = await request.json().catch(() => null);
+    if (body && body.storagePath && body.filename && body.mimeType && body.sizeBytes) {
+      await supabase.from("payment_proofs").insert({
+        payment_id: paymentId,
+        storage_path: body.storagePath,
+        original_filename: body.filename,
+        mime_type: body.mimeType,
+        size_bytes: body.sizeBytes,
+        uploaded_by: user.id,
+      });
+    }
+
+    const { data: proof } = await supabase
+      .from("payment_proofs")
+      .select("id")
+      .eq("payment_id", paymentId)
+      .limit(1)
+      .maybeSingle();
+
+    if (!proof) {
+      return NextResponse.json(
+        { error: "กรุณาแนบสลิปหลักฐานการชำระเงินก่อนส่งตรวจ" },
+        { status: 422 }
+      );
     }
 
     // ปรับสถานะเป็น submitted

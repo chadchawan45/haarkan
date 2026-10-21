@@ -1,7 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
 import { balances } from "@/lib/settlements";
-import { toExpenses, toPayments, type ExpenseRow, type PaymentRow } from "@/lib/group-finance";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-async function finance(groupId:string){const supabase=await createSupabaseServerClient();const {data:{user}}=await supabase.auth.getUser();if(!user)return{error:NextResponse.json({error:"กรุณาเข้าสู่ระบบ"},{status:401})};const {data:membership}=await supabase.from("group_members").select("id").eq("group_id",groupId).eq("user_id",user.id).neq("status","removed").maybeSingle();if(!membership)return{error:NextResponse.json({error:"ไม่มีสิทธิ์เข้าถึงกลุ่มนี้"},{status:403})};const [{data:members,error:memberError},{data:expenses,error:expenseError},{data:payments,error:paymentError}]=await Promise.all([supabase.from("group_members").select("id,user_id,status,profiles(display_name)").eq("group_id",groupId).neq("status","removed"),supabase.from("expenses").select("id,status,expense_payers(member_id,amount_satang),expense_shares(member_id,amount_satang)").eq("group_id",groupId),supabase.from("payments").select("status,from_member_id,to_member_id,amount_satang").eq("group_id",groupId)]);if(memberError||expenseError||paymentError)return{error:NextResponse.json({error:"ไม่สามารถอ่านข้อมูลยอดคงเหลือ"},{status:422})};return{members:members??[],expenses:(expenses??[]) as unknown as ExpenseRow[],payments:(payments??[]) as unknown as PaymentRow[]};}
-export async function GET(_request:NextRequest,context:{params:Promise<{groupId:string}>}){const {groupId}=await context.params;const data=await finance(groupId);if("error" in data)return data.error;const balance=balances(toExpenses(data.expenses),toPayments(data.payments));const items=data.members.map((m:any)=>({memberId:m.id,displayName:m.profiles?.display_name??"สมาชิก",status:m.status,netBalanceSatang:balance.get(m.id)??0}));return NextResponse.json({items,totalSatang:items.reduce((sum:number,x:{netBalanceSatang:number})=>sum+x.netBalanceSatang,0)});}
-export { finance };
+import {
+  fetchGroupFinanceData,
+  toExpenses,
+  toPayments,
+} from "@/lib/group-finance";
+
+export async function GET(
+  _request: NextRequest,
+  context: { params: Promise<{ groupId: string }> }
+) {
+  try {
+    const { groupId } = await context.params;
+    const data = await fetchGroupFinanceData(groupId);
+
+    if ("error" in data) {
+      return data.error;
+    }
+
+    const balance = balances(toExpenses(data.expenses), toPayments(data.payments));
+
+    const items = data.members.map((m: any) => ({
+      memberId: m.id,
+      displayName: m.profiles?.display_name ?? "สมาชิก",
+      status: m.status,
+      netBalanceSatang: balance.get(m.id) ?? 0,
+    }));
+
+    const totalSatang = items.reduce(
+      (sum: number, x: { netBalanceSatang: number }) => sum + x.netBalanceSatang,
+      0
+    );
+
+    return NextResponse.json({
+      items,
+      totalSatang,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: err.message ?? "เกิดข้อผิดพลาดในการคำนวณยอดคงเหลือ" },
+      { status: 500 }
+    );
+  }
+}
+
+// Re-export for any remaining references
+export { fetchGroupFinanceData as finance };

@@ -1,22 +1,159 @@
 -- Core schema. Run with Supabase CLI; all monetary values are integer satang.
-create type public.member_role as enum ('admin','member'); create type public.member_status as enum ('active','inactive','removed'); create type public.expense_status as enum ('active','voided'); create type public.split_mode as enum ('equal','custom','weighted'); create type public.payment_status as enum ('pending_proof','submitted','confirmed','rejected','cancelled'); create type public.settlement_mode as enum ('direct','optimized','manual');
-create table public.profiles(id uuid primary key references auth.users(id),display_name text not null,created_at timestamptz not null default now());
+create type public.member_role as enum ('admin', 'member');
+create type public.member_status as enum ('active', 'inactive', 'removed');
+create type public.expense_status as enum ('active', 'voided');
+create type public.split_mode as enum ('equal', 'custom', 'weighted');
+create type public.payment_status as enum ('pending_proof', 'submitted', 'confirmed', 'rejected', 'cancelled');
+create type public.settlement_mode as enum ('direct', 'optimized', 'manual');
+
+create table public.profiles (
+  id uuid primary key references auth.users(id),
+  display_name text not null,
+  created_at timestamptz not null default now()
+);
+
 create extension if not exists pgcrypto;
-create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$ begin insert into public.profiles(id,display_name) values(new.id,coalesce(new.raw_user_meta_data->>'display_name','สมาชิกใหม่')); return new; end $$;
-create trigger on_auth_user_created after insert on auth.users for each row execute function public.handle_new_user();
-create table public.groups(id uuid primary key default gen_random_uuid(),name text not null,description text,default_currency text not null default 'THB',week_starts_on smallint not null default 1 check(week_starts_on between 0 and 6),created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
-create table public.group_members(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),user_id uuid not null references public.profiles(id),role public.member_role not null default 'member',status public.member_status not null default 'active',pin_hash text,created_at timestamptz not null default now(),unique(group_id,user_id));
-create table public.group_invites(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),token_hash text not null unique,role public.member_role not null default 'member',expires_at timestamptz not null,max_uses integer not null default 1 check(max_uses>0),used_count integer not null default 0 check(used_count>=0 and used_count<=max_uses),revoked_at timestamptz,created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
-create table public.expense_categories(id uuid primary key default gen_random_uuid(),group_id uuid references public.groups(id),name_th text not null,is_active boolean not null default true,sort_order smallint not null default 0);
-create table public.expenses(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),title text not null,expense_date date not null,total_amount_satang bigint not null check(total_amount_satang>0),split_mode public.split_mode not null,note text,status public.expense_status not null default 'active',void_reason text,created_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
-create table public.expense_payers(expense_id uuid not null references public.expenses(id),member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>0),primary key(expense_id,member_id));
-create table public.expense_shares(expense_id uuid not null references public.expenses(id),member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>=0),weight integer check(weight is null or weight>0),primary key(expense_id,member_id));
-create table public.payments(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),from_member_id uuid not null references public.group_members(id),to_member_id uuid not null references public.group_members(id),amount_satang bigint not null check(amount_satang>0),payment_date date not null default current_date,status public.payment_status not null default 'pending_proof',settlement_mode public.settlement_mode not null default 'manual',submitted_by uuid references public.profiles(id),confirmed_by uuid references public.profiles(id),confirmed_at timestamptz,rejection_reason text,created_at timestamptz not null default now(),check(from_member_id<>to_member_id));
-create table public.payment_proofs(id uuid primary key default gen_random_uuid(),payment_id uuid not null references public.payments(id),storage_path text not null unique,original_filename text not null,mime_type text not null check(mime_type in ('image/jpeg','image/png','application/pdf')),size_bytes integer not null check(size_bytes>0 and size_bytes<=10485760),uploaded_by uuid not null references public.profiles(id),created_at timestamptz not null default now());
-create table public.notifications(id uuid primary key default gen_random_uuid(),user_id uuid not null references public.profiles(id),group_id uuid references public.groups(id),type text not null,title text not null,body text not null,data jsonb not null default '{}'::jsonb,read_at timestamptz,created_at timestamptz not null default now());
-create table public.audit_logs(id uuid primary key default gen_random_uuid(),group_id uuid not null references public.groups(id),actor_user_id uuid references public.profiles(id),entity_type text not null,entity_id uuid not null,action text not null,before_data jsonb,after_data jsonb,created_at timestamptz not null default now());
-create index expenses_group_date on public.expenses(group_id,expense_date);create index payments_group_status_date on public.payments(group_id,status,payment_date);
-create index group_members_group_user on public.group_members(group_id,user_id);create index notifications_user_read on public.notifications(user_id,read_at);create index expense_payers_expense on public.expense_payers(expense_id);create index expense_shares_expense on public.expense_shares(expense_id);
+
+create or replace function public.handle_new_user() returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  insert into public.profiles (id, display_name)
+  values (new.id, coalesce(new.raw_user_meta_data->>'display_name', 'สมาชิกใหม่'));
+  return new;
+end $$;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
+
+create table public.groups (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  description text,
+  default_currency text not null default 'THB',
+  week_starts_on smallint not null default 1 check(week_starts_on between 0 and 6),
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table public.group_members (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id),
+  user_id uuid not null references public.profiles(id),
+  role public.member_role not null default 'member',
+  status public.member_status not null default 'active',
+  pin_hash text,
+  created_at timestamptz not null default now(),
+  unique(group_id, user_id)
+);
+
+create table public.group_invites (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id),
+  token_hash text not null unique,
+  role public.member_role not null default 'member',
+  expires_at timestamptz not null,
+  max_uses integer not null default 1 check(max_uses > 0),
+  used_count integer not null default 0 check(used_count >= 0 and used_count <= max_uses),
+  revoked_at timestamptz,
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table public.expense_categories (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid references public.groups(id),
+  name_th text not null,
+  is_active boolean not null default true,
+  sort_order smallint not null default 0
+);
+
+create table public.expenses (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id),
+  title text not null,
+  expense_date date not null,
+  total_amount_satang bigint not null check(total_amount_satang > 0),
+  split_mode public.split_mode not null,
+  note text,
+  status public.expense_status not null default 'active',
+  void_reason text,
+  created_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table public.expense_payers (
+  expense_id uuid not null references public.expenses(id),
+  member_id uuid not null references public.group_members(id),
+  amount_satang bigint not null check(amount_satang > 0),
+  primary key(expense_id, member_id)
+);
+
+create table public.expense_shares (
+  expense_id uuid not null references public.expenses(id),
+  member_id uuid not null references public.group_members(id),
+  amount_satang bigint not null check(amount_satang >= 0),
+  weight integer check(weight is null or weight > 0),
+  primary key(expense_id, member_id)
+);
+
+create table public.payments (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id),
+  from_member_id uuid not null references public.group_members(id),
+  to_member_id uuid not null references public.group_members(id),
+  amount_satang bigint not null check(amount_satang > 0),
+  payment_date date not null default current_date,
+  status public.payment_status not null default 'pending_proof',
+  settlement_mode public.settlement_mode not null default 'manual',
+  submitted_by uuid references public.profiles(id),
+  confirmed_by uuid references public.profiles(id),
+  confirmed_at timestamptz,
+  rejection_reason text,
+  created_at timestamptz not null default now(),
+  check(from_member_id <> to_member_id)
+);
+
+create table public.payment_proofs (
+  id uuid primary key default gen_random_uuid(),
+  payment_id uuid not null references public.payments(id),
+  storage_path text not null unique,
+  original_filename text not null,
+  mime_type text not null check(mime_type in ('image/jpeg', 'image/png', 'application/pdf')),
+  size_bytes integer not null check(size_bytes > 0 and size_bytes <= 10485760),
+  uploaded_by uuid not null references public.profiles(id),
+  created_at timestamptz not null default now()
+);
+
+create table public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id),
+  group_id uuid references public.groups(id),
+  type text not null,
+  title text not null,
+  body text not null,
+  data jsonb not null default '{}'::jsonb,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid not null references public.groups(id),
+  actor_user_id uuid references public.profiles(id),
+  entity_type text not null,
+  entity_id uuid not null,
+  action text not null,
+  before_data jsonb,
+  after_data jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index expenses_group_date on public.expenses(group_id, expense_date);
+create index payments_group_status_date on public.payments(group_id, status, payment_date);
+create index group_members_group_user on public.group_members(group_id, user_id);
+create index notifications_user_read on public.notifications(user_id, read_at);
+create index expense_payers_expense on public.expense_payers(expense_id);
+create index expense_shares_expense on public.expense_shares(expense_id);
 -- Deferred constraint triggers allow payer/share rows to be inserted in one transaction,
 -- but reject any commit whose final expense totals are inconsistent.
 create or replace function public.assert_expense_totals() returns trigger language plpgsql as $$

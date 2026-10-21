@@ -70,15 +70,7 @@ export async function POST(
       });
     }
 
-    // บันทึก metadata ลงใน payment_proofs table
-    await supabase.from("payment_proofs").insert({
-      payment_id: paymentId,
-      storage_path: storagePath,
-      original_filename: parsed.data.filename,
-      mime_type: parsed.data.mimeType,
-      size_bytes: parsed.data.sizeBytes,
-      uploaded_by: user.id,
-    });
+
 
     return NextResponse.json({
       storagePath,

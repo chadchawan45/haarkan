@@ -17,7 +17,20 @@ export async function GET(
       return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
     }
 
-    // ตรวจสอบสิทธิ์และอ่าน week_starts_on ของกลุ่ม
+    // ตรวจสอบว่า user เป็นสมาชิกของกลุ่ม
+    const { data: membership } = await supabase
+      .from("group_members")
+      .select("id")
+      .eq("group_id", groupId)
+      .eq("user_id", user.id)
+      .neq("status", "removed")
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json({ error: "ไม่มีสิทธิ์เข้าถึงกลุ่มนี้" }, { status: 403 });
+    }
+
+    // ตรวจสอบกลุ่มและอ่าน week_starts_on
     const { data: group } = await supabase
       .from("groups")
       .select("id, name, week_starts_on")
@@ -29,7 +42,15 @@ export async function GET(
     }
 
     const dateParam = request.nextUrl.searchParams.get("date");
-    const targetDate = dateParam ? new Date(dateParam) : new Date();
+    const now = new Date();
+    const targetDate = dateParam
+      ? (() => {
+          const parts = dateParam.split("-").map(Number);
+          return parts.length === 3 && parts.every((n) => !isNaN(n))
+            ? new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]))
+            : new Date(dateParam);
+        })()
+      : new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     const start = startOfWeek(targetDate, group.week_starts_on);
     const end = endOfWeek(targetDate, group.week_starts_on);
 

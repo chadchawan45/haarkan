@@ -38,22 +38,21 @@ export function generatePromptPayPayload(target: string, amountBaht?: number): s
 
   let targetField = "";
   if (
-    digits.length === 10 ||
-    (digits.length === 9 && digits.startsWith("0")) ||
-    (digits.length <= 10 && (digits.startsWith("08") || digits.startsWith("09") || digits.startsWith("06")))
+    (digits.length === 10 && digits.startsWith("0")) ||
+    (digits.length === 9 && digits.startsWith("0"))
   ) {
     // เบอร์มือถือไทย: เติม 0066 + ตัด 0 ด้านหน้า -> ปรับให้ครบ 13 ตัวอักษร
     const normalizedMobile = "0066" + digits.replace(/^0/, "");
     const padded = normalizedMobile.padStart(13, "0");
     targetField = formatField("01", padded);
   } else if (digits.length === 13) {
-    // เลขบัตรประชาชน 13 หลัก
+    // เลขบัตรประชาชน / Tax ID 13 หลัก
     targetField = formatField("02", digits);
   } else if (digits.length === 15) {
-    // e-Wallet ID
+    // e-Wallet ID 15 หลัก
     targetField = formatField("03", digits);
   } else {
-    // เบอร์โทรทั่วไปหรือค่าที่กรอกมา
+    // กรณีอื่นๆ ปรับให้อยู่ในรูปแบบเบอร์โทร
     const normalized = digits.startsWith("0") ? "0066" + digits.slice(1) : digits;
     const padded = normalized.padStart(13, "0");
     targetField = formatField("01", padded);
