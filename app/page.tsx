@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
 import { useGroup, ExpenseRecord, PaymentRecord, GroupSettings } from "@/lib/group-context";
 import { formatTHB } from "@/lib/money";
@@ -21,6 +21,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 };
 
 function DashboardContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const {
     groups,
@@ -51,11 +52,11 @@ function DashboardContent() {
 
   const handleOpenDeleteModal = (targetGroup: GroupSettings) => {
     if (isDemo) {
-      triggerDemoLock("การลบห้อง");
+      triggerDemoLock("การลบกลุ่ม");
       return;
     }
     if (groups.length <= 1) {
-      alert("⚠️ ไม่สามารถลบได้ เนื่องจากระบบต้องมีห้องอย่างน้อย 1 ห้อง");
+      alert("⚠️ ไม่สามารถลบได้ เนื่องจากระบบต้องมีกลุ่มอย่างน้อย 1 กลุ่ม");
       return;
     }
     setDeleteError(null);
@@ -73,11 +74,15 @@ function DashboardContent() {
   };
 
   useEffect(() => {
-    const joinCode = searchParams.get("join");
+    const joinCode = searchParams.get("join") || searchParams.get("code");
     if (joinCode) {
-      joinGroupByCode(joinCode);
+      joinGroupByCode(joinCode).then((res) => {
+        if (res.success) {
+          router.replace("/");
+        }
+      });
     }
-  }, [searchParams, joinGroupByCode]);
+  }, [searchParams, joinGroupByCode, router]);
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -142,7 +147,7 @@ function DashboardContent() {
       <section className="intro">
         <div>
           <p className="eyebrow">
-            กลุ่มที่กำลังเปิดใช้งาน: <strong>{group.name}</strong> · รหัสห้อง: <strong style={{ fontFamily: "monospace", letterSpacing: "2px", color: "#1f6f53" }}>{group.code}</strong>
+            กลุ่มที่กำลังเปิดใช้งาน: <strong>{group.name}</strong> · รหัสกลุ่ม: <strong style={{ fontFamily: "monospace", letterSpacing: "2px", color: "#1f6f53" }}>{group.code}</strong>
           </p>
           <h1>สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋</h1>
         </div>
@@ -167,7 +172,7 @@ function DashboardContent() {
         </div>
       </section>
 
-      {/* ส่วนแสดงห้องทั้งหมดแบบ Google Classroom */}
+      {/* ส่วนแสดงกลุ่มทั้งหมด (Multi-Group Overview) */}
       <section style={{ marginBottom: "36px" }}>
         <div
           style={{
@@ -181,13 +186,13 @@ function DashboardContent() {
         >
           <div>
             <p className="eyebrow" style={{ margin: "0 0 4px", fontSize: "12px" }}>
-              ระบบห้องแบบ Google Classroom · จัดการหลายกลุ่ม
+              ระบบจัดการหลายกลุ่ม · Multi-Group Dashboard
             </p>
             <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 6px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>🏫</span> ห้องทั้งหมดของคุณ ({groups.length} ห้อง)
+              <span>👥</span> กลุ่มทั้งหมดของคุณ ({groups.length} กลุ่ม)
             </h2>
             <p style={{ margin: 0, fontSize: "14px", color: "var(--text-muted, #6a766e)" }}>
-              เลือกห้องที่ต้องการจัดการบิลและเคลียร์เงิน หรือใช้รหัส 6 หลักในการเข้าร่วมห้องใหม่
+              เลือกกลุ่มที่ต้องการจัดการบิลและเคลียร์เงิน หรือใช้รหัส 6 หลักในการเข้าร่วมกลุ่มใหม่
             </p>
           </div>
 
@@ -207,7 +212,7 @@ function DashboardContent() {
                 cursor: "pointer",
               }}
             >
-              🔑 เข้าร่วมห้องด้วยรหัส
+              🔑 เข้าร่วมกลุ่มด้วยรหัส
             </button>
             <Link
               href="/groups/new"
@@ -223,7 +228,7 @@ function DashboardContent() {
                 gap: "6px",
               }}
             >
-              ＋ สร้างห้องใหม่
+              ＋ สร้างกลุ่มใหม่
             </Link>
           </div>
         </div>
@@ -324,7 +329,7 @@ function DashboardContent() {
                   </div>
                 </div>
 
-                {/* Body ส่วนแสดงรหัสห้อง 6 หลัก */}
+                {/* Body ส่วนแสดงรหัสกลุ่ม 6 หลัก */}
                 <div style={{ padding: "18px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div
                     style={{
@@ -340,7 +345,7 @@ function DashboardContent() {
                   >
                     <div>
                       <span style={{ fontSize: "11px", color: "var(--text-muted, #6a766e)", display: "block" }}>
-                        รหัสห้อง (Classroom Code)
+                        รหัสกลุ่ม (Group Code)
                       </span>
                       <strong style={{ fontFamily: "monospace", fontSize: "19px", letterSpacing: "3px", color: "#1f6f53" }}>
                         {g.code}
@@ -356,7 +361,7 @@ function DashboardContent() {
                         setTimeout(() => setCopiedCodeId(null), 2000);
                       }}
                       style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "8px", fontWeight: 600 }}
-                      title="คัดลอกรหัสห้องส่งให้เพื่อน"
+                      title="คัดลอกรหัสกลุ่มส่งให้เพื่อน"
                     >
                       {copiedCodeId === g.id ? "✓ คัดลอกแล้ว!" : "📋 คัดลอกรหัส"}
                     </button>
@@ -387,16 +392,16 @@ function DashboardContent() {
                           gap: "4px",
                           transition: "all 0.15s ease",
                         }}
-                        title="ลบห้องนี้ออกจากระบบ"
+                        title="ลบกลุ่มนี้ออกจากระบบ"
                       >
-                        🗑️ ลบห้อง
+                        🗑️ ลบกลุ่ม
                       </button>
                       <button
                         type="button"
                         className={isActive ? "primary" : "secondary"}
                         style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700, borderRadius: "10px" }}
                       >
-                        {isActive ? "จัดการห้องนี้ ➔" : "เข้าสู่ห้อง ➔"}
+                        {isActive ? "จัดการกลุ่มนี้ ➔" : "เข้าสู่กลุ่ม ➔"}
                       </button>
                     </div>
                   </div>
@@ -733,7 +738,7 @@ function DashboardContent() {
               <span style={{ fontSize: "28px" }}>🗑️</span>
               <div>
                 <h3 style={{ margin: 0, fontSize: "19px", fontWeight: 700, color: "#dc2626" }}>
-                  ยืนยันการลบห้อง
+                  ยืนยันการลบกลุ่ม
                 </h3>
                 <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
                   การดำเนินการนี้ไม่สามารถย้อนกลับได้
@@ -752,9 +757,9 @@ function DashboardContent() {
                 lineHeight: 1.6,
               }}
             >
-              คุณแน่ใจหรือไม่ว่าต้องการลบห้อง <strong>&ldquo;{roomToDelete.name}&rdquo;</strong> (รหัสห้อง: <code style={{ color: "#dc2626", fontWeight: 700 }}>{roomToDelete.code}</code>)?
+              คุณแน่ใจหรือไม่ว่าต้องการลบกลุ่ม <strong>&ldquo;{roomToDelete.name}&rdquo;</strong> (รหัสกลุ่ม: <code style={{ color: "#dc2626", fontWeight: 700 }}>{roomToDelete.code}</code>)?
               <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "6px" }}>
-                ⚠️ ข้อมูลค่าใช้จ่าย สมาชิก และประวัติการชำระเงินของห้องนี้จะถูกนำออกจากระบบ
+                ⚠️ ข้อมูลค่าใช้จ่าย สมาชิก และประวัติการชำระเงินของกลุ่มนี้จะถูกนำออกจากระบบ
               </div>
             </div>
 
@@ -787,7 +792,7 @@ function DashboardContent() {
                   boxShadow: "0 4px 12px rgba(220, 38, 38, 0.25)",
                 }}
               >
-                ยืนยันลบห้อง
+                ยืนยันลบกลุ่ม
               </button>
             </div>
           </div>
@@ -802,7 +807,7 @@ export default function DashboardPage() {
     <Suspense
       fallback={
         <main className="shell">
-          <div style={{ textAlign: "center", padding: "60px 20px" }}>กำลังโหลดข้อมูลห้อง...</div>
+          <div style={{ textAlign: "center", padding: "60px 20px" }}>กำลังโหลดข้อมูลกลุ่ม...</div>
         </main>
       }
     >

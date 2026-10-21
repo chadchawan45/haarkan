@@ -77,7 +77,7 @@ export function Navbar() {
         </div>
 
         <div className="top-right">
-          {/* ปุ่มเข้าร่วมห้อง (Classroom Join Room) */}
+          {/* ปุ่มเข้าร่วมกลุ่มด้วยรหัส (Join Group) */}
           <button
             type="button"
             className="secondary"
@@ -95,9 +95,9 @@ export function Navbar() {
               color: "#1f6f53",
               cursor: "pointer",
             }}
-            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมห้อง"
+            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมกลุ่ม"
           >
-            🔑 เข้าร่วมห้อง
+            🔑 เข้าร่วมกลุ่ม
           </button>
 
           {/* ปุ่มสลับธีมมืด / ธีมสว่าง */}
@@ -291,7 +291,7 @@ export function Navbar() {
         })}
       </nav>
 
-      {/* โมดอลเข้าร่วมห้องด้วยรหัส 6 ตัว */}
+      {/* โมดอลเข้าร่วมกลุ่มด้วยรหัส 6 ตัว */}
       <JoinRoomModal />
     </header>
   );

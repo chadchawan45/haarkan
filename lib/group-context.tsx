@@ -29,6 +29,7 @@ export interface Member {
 
 export interface ExpenseRecord {
   id: string;
+  groupId?: string;
   title: string;
   expenseDate: string;
   totalAmountSatang: number;
@@ -53,6 +54,7 @@ export interface PaymentProof {
 
 export interface PaymentRecord {
   id: string;
+  groupId?: string;
   fromMemberId: string;
   toMemberId: string;
   amountSatang: number;
@@ -82,7 +84,7 @@ export interface GroupSettings {
   weekStartsOn: number; // 0=Sunday, 1=Monday
   defaultCurrency: string;
   creatorMemberId?: string;
-  code: string; // รหัสห้อง 6 ตัวอักษร เช่น HA8K29
+  code: string; // รหัสกลุ่ม 6 ตัวอักษร เช่น HA8K29
   bannerGradient?: string;
   createdAt?: string;
 }
@@ -95,6 +97,8 @@ export function generateRoomCode(): string {
   }
   return code;
 }
+
+export const generateGroupCode = generateRoomCode;
 
 export const CLASSROOM_GRADIENTS = [
   "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)", // เขียวมรกต
@@ -245,7 +249,7 @@ interface GroupContextType {
   deleteGroup: (groupId: string) => { success: boolean; message: string };
   groups: GroupSettings[];
   switchGroup: (groupId: string) => void;
-  joinGroupByCode: (code: string) => { success: boolean; message: string; group?: GroupSettings };
+  joinGroupByCode: (code: string) => Promise<{ success: boolean; message: string; group?: GroupSettings }>;
   joinModalOpen: boolean;
   setJoinModalOpen: (open: boolean) => void;
 }
@@ -374,6 +378,26 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.warn("Could not read local storage state:", e);
     }
+
+    // ซิงค์กลุ่มจากเซิร์ฟเวอร์เพื่อให้ข้อมูลตรงกันแม้ล็อกอินต่างเครื่องหรือต่างเบราว์เซอร์
+    fetch("/api/groups/sync")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.success && Array.isArray(data.groups) && data.groups.length > 0) {
+          setGroups((prev) => {
+            const map = new Map(prev.map((g) => [g.id, g]));
+            for (const g of data.groups) {
+              if (map.has(g.id)) {
+                map.set(g.id, { ...map.get(g.id)!, ...g });
+              } else {
+                map.set(g.id, g);
+              }
+            }
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // Save to localStorage on changes (sanitize members so passwords are never stored in plaintext)
@@ -400,6 +424,23 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     }
   }, [groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo]);
 
+  // ซิงค์ข้อมูลกลุ่ม ค่าใช้จ่าย และสมาชิกไปยังเซิร์ฟเวอร์แบบ Debounce เพื่อให้รหัสกลุ่มใช้งานได้จริงข้ามบัญชี/ข้ามเครื่อง
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetch("/api/groups/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          groups,
+          expenses,
+          payments,
+          members: members.map(({ password: _, ...rest }) => rest),
+        }),
+      }).catch(() => {});
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [groups, expenses, payments, members]);
+
 
   const currentMember = useMemo(
     () => members.find((m) => m.id === currentMemberId) ?? members[0],
@@ -414,21 +455,31 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   );
   const activeMembers = useMemo(() => members.filter((m) => m.status === "active"), [members]);
 
+  // คำนวณรายการเฉพาะกลุ่มปัจจุบัน
+  const currentGroupExpenses = useMemo(
+    () => expenses.filter((e) => !e.groupId || e.groupId === currentGroupId),
+    [expenses, currentGroupId]
+  );
+  const currentGroupPayments = useMemo(
+    () => payments.filter((p) => !p.groupId || p.groupId === currentGroupId),
+    [payments, currentGroupId]
+  );
+
   // คำนวณ Net Balances ด้วย lib/settlements.ts
   const netBalances = useMemo(() => {
-    const domainExpenses = expenses.map((e) => ({
+    const domainExpenses = currentGroupExpenses.map((e) => ({
       status: e.status,
       payers: e.payers,
       shares: e.shares,
     }));
-    const domainPayments = payments.map((p) => ({
+    const domainPayments = currentGroupPayments.map((p) => ({
       status: p.status,
       fromMemberId: p.fromMemberId,
       toMemberId: p.toMemberId,
       amountSatang: p.amountSatang,
     }));
     return balances(domainExpenses, domainPayments);
-  }, [expenses, payments]);
+  }, [currentGroupExpenses, currentGroupPayments]);
 
   // คำนวณยอดส่วนตัว
   const myNetBalanceSatang = netBalances.get(currentMemberId) ?? 0;
@@ -437,13 +488,13 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
   // คำนวณ Direct Settlements
   const directSettlementList = useMemo(() => {
-    const domainExpenses = expenses.map((e) => ({
+    const domainExpenses = currentGroupExpenses.map((e) => ({
       status: e.status,
       payers: e.payers,
       shares: e.shares,
     }));
     return directSettlements(domainExpenses);
-  }, [expenses]);
+  }, [currentGroupExpenses]);
 
   // คำนวณ Optimized Settlements
   const optimizedSettlementList = useMemo(() => {
@@ -502,8 +553,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
-        title: "สร้างห้องใหม่เรียบร้อยแล้ว",
-        body: `คุณได้สร้างห้อง "${newGroup.name}" รหัสห้องสำหรับเชิญเพื่อน: ${newGroup.code}`,
+        title: "สร้างกลุ่มใหม่เรียบร้อยแล้ว",
+        body: `คุณได้สร้างกลุ่ม "${newGroup.name}" รหัสกลุ่มสำหรับเชิญเพื่อน: ${newGroup.code}`,
         type: "group_created",
         read: false,
         createdAt: new Date().toISOString(),
@@ -515,76 +566,144 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     return newGroup;
   };
 
-  const joinGroupByCode = (inputCode: string) => {
-    const clean = inputCode.trim().toUpperCase();
+  const joinGroupByCode = async (inputCode: string) => {
+    const clean = (inputCode || "").trim().toUpperCase();
     if (!clean || clean.length < 3) {
-      return { success: false, message: "กรุณาระบุรหัสห้องที่ถูกต้อง (เช่น 6 ตัวอักษร)" };
+      return { success: false, message: "กรุณาระบุรหัสกลุ่มที่ถูกต้อง (6 ตัวอักษร)" };
     }
 
-    let found = groups.find((g) => g.code?.toUpperCase() === clean);
-    if (!found) {
-      // สร้างห้องใหม่จากรหัสนี้เพื่อให้สามารถเข้าร่วมได้ทันทีแม้ไม่ได้อยู่บนเครื่องเดียวกัน
-      found = {
-        id: `group-code-${clean}`,
-        name: `ห้อง ${clean}`,
-        description: `ห้องแชร์ค่าใช้จ่าย (รหัส: ${clean})`,
-        weekStartsOn: 1,
-        defaultCurrency: "THB",
-        creatorMemberId: currentMemberId,
-        code: clean,
-        bannerGradient: CLASSROOM_GRADIENTS[Math.floor(Math.random() * CLASSROOM_GRADIENTS.length)],
-        createdAt: new Date().toISOString(),
+    // 1. ค้นหากลุ่มจาก Server Registry เพื่อให้รหัสกลุ่มใช้งานได้จริงข้ามบัญชี/ข้ามเครื่อง
+    try {
+      const res = await fetch(`/api/groups/code/${clean}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ member: currentMember }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.group) {
+          const serverGroup: GroupSettings = data.group;
+
+          setGroups((prev) => {
+            const idx = prev.findIndex(
+              (g) => g.id === serverGroup.id || g.code?.toUpperCase() === clean
+            );
+            if (idx >= 0) {
+              const updated = [...prev];
+              updated[idx] = { ...updated[idx], ...serverGroup };
+              return updated;
+            }
+            return [serverGroup, ...prev];
+          });
+
+          if (data.expenses && Array.isArray(data.expenses) && data.expenses.length > 0) {
+            setExpenses((prev) => {
+              const existingIds = new Set(prev.map((e) => e.id));
+              const newExps = data.expenses.filter((e: ExpenseRecord) => !existingIds.has(e.id));
+              return [...newExps, ...prev];
+            });
+          }
+
+          if (data.payments && Array.isArray(data.payments) && data.payments.length > 0) {
+            setPayments((prev) => {
+              const existingIds = new Set(prev.map((p) => p.id));
+              const newPays = data.payments.filter((p: PaymentRecord) => !existingIds.has(p.id));
+              return [...newPays, ...prev];
+            });
+          }
+
+          if (data.members && Array.isArray(data.members) && data.members.length > 0) {
+            setMembers((prev) => {
+              const map = new Map(prev.map((m) => [m.id, m]));
+              for (const m of data.members) {
+                map.set(m.id, { ...(map.get(m.id) || {}), ...m });
+              }
+              return Array.from(map.values());
+            });
+          }
+
+          setCurrentGroupId(serverGroup.id);
+
+          setNotifications((prev) => [
+            {
+              id: `notif-${Date.now()}`,
+              title: "เข้าร่วมกลุ่มสำเร็จ",
+              body: `คุณได้เข้าร่วมกลุ่ม "${serverGroup.name}" ด้วยรหัส ${clean} เรียบร้อยแล้ว`,
+              type: "group_joined",
+              read: false,
+              createdAt: new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+
+          return {
+            success: true,
+            message: `เข้าร่วมกลุ่ม "${serverGroup.name}" สำเร็จ!`,
+            group: serverGroup,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Could not query server group registry:", err);
+    }
+
+    // 2. Fallback ค้นหาในกลุ่มที่มีอยู่ในเครื่อง
+    const found = groups.find((g) => g.code?.toUpperCase() === clean);
+    if (found) {
+      setCurrentGroupId(found.id);
+
+      if (!members.some((m) => m.id === currentMemberId && m.status === "active")) {
+        setMembers((prev) =>
+          prev.map((m) => (m.id === currentMemberId ? { ...m, status: "active" as MemberStatus } : m))
+        );
+      }
+
+      setNotifications((prev) => [
+        {
+          id: `notif-${Date.now()}`,
+          title: "เข้าร่วมกลุ่มสำเร็จ",
+          body: `คุณได้เข้าร่วมกลุ่ม "${found.name}" ด้วยรหัส ${clean} เรียบร้อยแล้ว`,
+          type: "group_joined",
+          read: false,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      return {
+        success: true,
+        message: `เข้าร่วมกลุ่ม "${found.name}" สำเร็จ!`,
+        group: found,
       };
-      setGroups((prev) => [...prev, found!]);
     }
 
-    setCurrentGroupId(found.id);
-
-    // รับรองว่าผู้ใช้ปัจจุบันอยู่ในสมาชิกห้อง
-    if (!members.some((m) => m.id === currentMemberId && m.status === "active")) {
-      setMembers((prev) =>
-        prev.map((m) => (m.id === currentMemberId ? { ...m, status: "active" as MemberStatus } : m))
-      );
-    }
-
-    setNotifications((prev) => [
-      {
-        id: `notif-${Date.now()}`,
-        title: "เข้าร่วมห้องสำเร็จ",
-        body: `คุณได้เข้าร่วมห้อง "${found!.name}" ด้วยรหัส ${clean} เรียบร้อยแล้ว`,
-        type: "group_joined",
-        read: false,
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-
+    // 3. ไม่พบกลุ่ม
     return {
-      success: true,
-      message: `เข้าร่วมห้อง "${found.name}" สำเร็จ!`,
-      group: found,
+      success: false,
+      message: `ไม่พบกลุ่มที่ตรงกับรหัส "${clean}" กรุณาตรวจสอบรหัส 6 หลักจากผู้สร้างกลุ่มอีกครั้ง`,
     };
   };
 
   const deleteGroup = (groupId: string): { success: boolean; message: string } => {
     if (isDemo) {
-      triggerDemoLock("การลบห้อง");
-      return { success: false, message: "โหมดทดลองใช้งานไม่สามารถลบห้องได้" };
+      triggerDemoLock("การลบกลุ่ม");
+      return { success: false, message: "โหมดทดลองใช้งานไม่สามารถลบกลุ่มได้" };
     }
 
     if (groups.length <= 1) {
-      return { success: false, message: "ไม่สามารถลบได้ ต้องมีห้องอย่างน้อย 1 ห้องในระบบ" };
+      return { success: false, message: "ไม่สามารถลบได้ ต้องมีกลุ่มอย่างน้อย 1 กลุ่มในระบบ" };
     }
 
     const targetGroup = groups.find((g) => g.id === groupId);
     if (!targetGroup) {
-      return { success: false, message: "ไม่พบห้องที่ต้องการลบ" };
+      return { success: false, message: "ไม่พบกลุ่มที่ต้องการลบ" };
     }
 
     const remainingGroups = groups.filter((g) => g.id !== groupId);
     setGroups(remainingGroups);
 
-    // หากห้องที่ลบคือห้องที่กำลังเปิดใช้งานอยู่ ให้สลับไปห้องแรกที่เหลือ
+    // หากกลุ่มที่ลบคือกลุ่มที่กำลังเปิดใช้งานอยู่ ให้สลับไปกลุ่มแรกที่เหลือ
     if (currentGroupId === groupId) {
       setCurrentGroupId(remainingGroups[0].id);
     }
@@ -592,8 +711,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     setNotifications((prev) => [
       {
         id: `notif-${Date.now()}`,
-        title: "ลบห้องสำเร็จ",
-        body: `ห้อง "${targetGroup.name}" ถูกลบออกจากระบบแล้ว`,
+        title: "ลบกลุ่มสำเร็จ",
+        body: `กลุ่ม "${targetGroup.name}" ถูกลบออกจากระบบแล้ว`,
         type: "group_deleted",
         read: false,
         createdAt: new Date().toISOString(),
@@ -601,7 +720,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       ...prev,
     ]);
 
-    return { success: true, message: `ลบห้อง "${targetGroup.name}" สำเร็จเรียบร้อยแล้ว` };
+    return { success: true, message: `ลบกลุ่ม "${targetGroup.name}" สำเร็จเรียบร้อยแล้ว` };
   };
 
   const addExpense: GroupContextType["addExpense"] = (expData) => {
@@ -609,6 +728,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const newExp: ExpenseRecord = {
       ...expData,
       id: newId,
+      groupId: currentGroupId,
       status: "active",
       createdByMemberId: currentMemberId,
       createdAt: new Date().toISOString(),
@@ -676,6 +796,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const newId = `pay-${Date.now()}`;
     const newPayment: PaymentRecord = {
       id: newId,
+      groupId: currentGroupId,
       fromMemberId: fromId,
       toMemberId: toId,
       amountSatang,

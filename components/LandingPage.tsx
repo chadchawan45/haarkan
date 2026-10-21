@@ -373,7 +373,7 @@ export function LandingPage() {
           <div className="usecase-item">
             <span className="usecase-icon">🏠</span>
             <h4>รูมเมท & บ้านเช่า / คอนโด</h4>
-            <p>แชร์ค่าเช่าบ้าน ค่าน้ำ ค่าไฟ อินเทอร์เน็ต น้ำดื่ม และของใช้ส่วนกลางในห้อง</p>
+            <p>แชร์ค่าเช่าบ้าน ค่าน้ำ ค่าไฟ อินเทอร์เน็ต น้ำดื่ม และของใช้ส่วนกลางในบ้าน/คอนโด</p>
           </div>
 
           <div className="usecase-item">

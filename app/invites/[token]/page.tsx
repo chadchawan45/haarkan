@@ -11,24 +11,46 @@ export default function AcceptInvitePage() {
   const router = useRouter();
   const { group, groups, joinGroupByCode, members, currentMember, isAuthenticated, logout } = useGroup();
 
-  // หาก token ตรงกับรหัสห้อง 6 ตัวในระบบ ให้ใช้ข้อมูลห้องนั้น
-  const targetGroup = groups.find((g) => g.code?.toUpperCase() === token?.toUpperCase()) || group;
-
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [remoteGroup, setRemoteGroup] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (token) {
+      fetch(`/api/groups/code/${token}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.success && data?.group) {
+            setRemoteGroup(data.group);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [token]);
+
+  // หาก token ตรงกับรหัสกลุ่ม 6 ตัวในระบบ ให้ใช้ข้อมูลกลุ่มนั้น
+  const targetGroup =
+    groups.find((g) => g.code?.toUpperCase() === token?.toUpperCase()) ||
+    remoteGroup ||
+    group;
 
   // ตรวจสอบว่าผู้ใช้กำลังล็อกอินและเป็นสมาชิกของกลุ่มนี้อยู่แล้วหรือไม่
   const isAlreadyMember = isAuthenticated && members.some(
     (m) => m.id === currentMember?.id && m.status === "active"
   );
 
-  const handleJoinGroup = () => {
+  const handleJoinGroup = async () => {
     setLoading(true);
-    joinGroupByCode(token || targetGroup.code);
-    setSuccess(true);
-    setTimeout(() => {
-      router.push("/");
-    }, 1000);
+    const res = await joinGroupByCode(token || targetGroup.code);
+    if (res.success) {
+      setSuccess(true);
+      setTimeout(() => {
+        router.push("/");
+      }, 1000);
+    } else {
+      setLoading(false);
+      alert(res.message);
+    }
   };
 
   return (
@@ -53,10 +75,10 @@ export default function AcceptInvitePage() {
           >
             ✉️ คำเชิญเข้าร่วมกลุ่ม
           </div>
-          <h2 style={{ margin: "12px 0 6px", fontSize: "22px" }}>{group.name}</h2>
-          {group.description && (
+          <h2 style={{ margin: "12px 0 6px", fontSize: "22px" }}>{targetGroup.name}</h2>
+          {targetGroup.description && (
             <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", margin: "0 0 8px" }}>
-              {group.description}
+              {targetGroup.description}
             </p>
           )}
         </div>

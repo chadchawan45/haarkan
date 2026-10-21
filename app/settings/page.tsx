@@ -272,13 +272,13 @@ export default function SettingsPage() {
             </button>
           </form>
 
-          {/* รหัสห้องและลิงก์เชิญสมาชิกใหม่ */}
+          {/* รหัสกลุ่มและลิงก์เชิญสมาชิกใหม่ */}
           <div className="card">
             <div className="section-title">
-              <span>รหัสห้องและลิงก์เชิญ (Classroom Code & Invite)</span>
+              <span>รหัสกลุ่มและลิงก์เชิญ (Group Code & Invite)</span>
             </div>
 
-            {/* รหัสห้อง 6 ตัวอักษร */}
+            {/* รหัสกลุ่ม 6 ตัวอักษร */}
             <div
               style={{
                 background: "rgba(31, 111, 83, 0.06)",
@@ -294,7 +294,7 @@ export default function SettingsPage() {
             >
               <div>
                 <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)", display: "block" }}>
-                  🏷️ รหัสห้อง 6 หลักสำหรับชวนเพื่อน
+                  🏷️ รหัสกลุ่ม 6 หลักสำหรับชวนเพื่อน
                 </span>
                 <strong style={{ fontFamily: "monospace", fontSize: "24px", letterSpacing: "4px", color: "#1f6f53" }}>
                   {group.code}

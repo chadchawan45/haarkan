@@ -28,13 +28,13 @@ export function JoinRoomModal() {
     setSuccess(null);
   };
 
-  const handleJoin = (targetCode?: string) => {
+  const handleJoin = async (targetCode?: string) => {
     const codeToUse = (targetCode || code).trim().toUpperCase();
     setError("");
     setSuccess(null);
 
     if (!codeToUse || codeToUse.length < 3) {
-      setError("กรุณากรอกรหัสห้องให้ถูกต้อง (อย่างน้อย 3-6 ตัวอักษร)");
+      setError("กรุณากรอกรหัสกลุ่มให้ถูกต้อง (6 ตัวอักษร)");
       return;
     }
 
@@ -46,16 +46,21 @@ export function JoinRoomModal() {
     }
 
     setLoading(true);
-    const result = joinGroupByCode(codeToUse);
+    try {
+      const result = await joinGroupByCode(codeToUse);
 
-    if (result.success) {
-      setSuccess(result.message);
-      setTimeout(() => {
-        handleClose();
-        router.push("/");
-      }, 1000);
-    } else {
-      setError(result.message);
+      if (result.success) {
+        setSuccess(result.message);
+        setTimeout(() => {
+          handleClose();
+          router.push("/");
+        }, 1000);
+      } else {
+        setError(result.message);
+        setLoading(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || "เกิดข้อผิดพลาดในการเข้าร่วมกลุ่ม");
       setLoading(false);
     }
   };
@@ -130,11 +135,11 @@ export function JoinRoomModal() {
               boxShadow: "0 8px 18px rgba(31, 111, 83, 0.3)",
             }}
           >
-            🏫
+            👥
           </div>
-          <h2 style={{ margin: "0 0 6px", fontSize: "20px" }}>เข้าร่วมห้อง (Join Room)</h2>
+          <h2 style={{ margin: "0 0 6px", fontSize: "20px" }}>เข้าร่วมกลุ่ม (Join Group)</h2>
           <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted, #6a766e)", lineHeight: 1.5 }}>
-            ขอรหัสห้อง 6 ตัวจากเพื่อนหรือผู้สร้างกลุ่ม แล้วนำมากรอกที่นี่เพื่อเข้าร่วมห้องทันที
+            ขอรหัสกลุ่ม 6 ตัวจากเพื่อนหรือผู้สร้างกลุ่ม แล้วนำมากรอกที่นี่เพื่อเข้าร่วมกลุ่มทันที
           </p>
         </div>
 
@@ -153,7 +158,7 @@ export function JoinRoomModal() {
             <div style={{ fontSize: "36px", marginBottom: "6px" }}>🎉</div>
             <strong style={{ fontSize: "15px", display: "block" }}>{success}</strong>
             <p style={{ fontSize: "12px", margin: "4px 0 0", color: "#047857" }}>
-              กำลังนำคุณเข้าสู่ห้อง...
+              กำลังนำคุณเข้าสู่กลุ่ม...
             </p>
           </div>
         ) : (
@@ -165,7 +170,7 @@ export function JoinRoomModal() {
           >
             <label className="field" style={{ marginBottom: "16px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "6px" }}>
-                รหัสห้อง 6 หลัก (Classroom Code) <span style={{ color: "#d9483b" }}>*</span>
+                รหัสกลุ่ม 6 หลัก (Group Code) <span style={{ color: "#d9483b" }}>*</span>
               </span>
               <input
                 type="text"
@@ -211,11 +216,11 @@ export function JoinRoomModal() {
               </div>
             )}
 
-            {/* รหัสห้องแนะนำหรือห้องที่มีอยู่แล้วสำหรับคลิกทดสอบได้รวดเร็ว */}
+            {/* รหัสกลุ่มแนะนำหรือกลุ่มที่มีอยู่แล้วสำหรับคลิกทดสอบได้รวดเร็ว */}
             {groups && groups.length > 0 && (
               <div style={{ marginBottom: "18px" }}>
                 <span style={{ fontSize: "11px", color: "#777", display: "block", marginBottom: "6px" }}>
-                  💡 หรือเลือกรหัสห้องที่มีอยู่แล้วในระบบ:
+                  💡 หรือเลือกรหัสกลุ่มที่มีอยู่แล้วในระบบ:
                 </span>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                   {groups.map((g) => (
@@ -271,7 +276,7 @@ export function JoinRoomModal() {
                   gap: "6px",
                 }}
               >
-                {loading ? "กำลังเข้าร่วม..." : "✓ เข้าร่วมห้อง"}
+                {loading ? "กำลังเข้าร่วม..." : "✓ เข้าร่วมกลุ่ม"}
               </button>
             </div>
           </form>
@@ -280,3 +285,5 @@ export function JoinRoomModal() {
     </div>
   );
 }
+
+export const JoinGroupModal = JoinRoomModal;
