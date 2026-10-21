@@ -34,14 +34,12 @@ export function Navbar() {
           { label: "ภาพรวม", href: "/" },
           { label: "รายจ่าย (เปิดใช้)", href: "/expenses" },
           { label: "🔒 เคลียร์เงิน", href: "/balances" },
-          { label: "🔒 สร้างกลุ่ม", href: "/groups/new" },
           ...(isGroupCreator ? [{ label: "🔒 ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
       : [
           { label: "ภาพรวม", href: "/" },
           { label: "รายจ่าย", href: "/expenses" },
           { label: "เคลียร์เงิน & ชำระหนี้", href: "/balances" },
-          { label: "＋ สร้างกลุ่ม", href: "/groups/new" },
           ...(isGroupCreator ? [{ label: "⚙️ ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
     : [

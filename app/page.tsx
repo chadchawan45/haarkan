@@ -148,59 +148,22 @@ function DashboardContent() {
         </div>
 
         <div className="actions-row">
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => setJoinModalOpen(true)}
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px", cursor: "pointer", fontWeight: 700 }}
-            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมห้อง"
-          >
-            🔑 เข้าร่วมห้อง
-          </button>
-          <Link
-            href="/profile"
-            className="secondary"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-            title={isDemo ? "ข้อมูลโปรไฟล์ (ถูกล็อกในโหมด Demo)" : undefined}
-          >
-            {isDemo ? "🔒 ข้อมูลรับเงิน" : "👤 ข้อมูลรับเงินของฉัน"}
-          </Link>
-          <Link
-            href="/groups/new"
-            className="secondary"
-            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-            title={isDemo ? "สร้างกลุ่มใหม่ (ถูกล็อกในโหมด Demo)" : undefined}
-          >
-            {isDemo ? "🔒 ＋ สร้างกลุ่ม" : "＋ สร้างกลุ่ม"}
-          </Link>
-          {isGroupCreator && (
-            <Link
-              href="/settings"
-              className="secondary"
-              style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
-              title={isDemo ? "ตั้งค่ากลุ่ม (ถูกล็อกในโหมด Demo)" : undefined}
-            >
-              {isDemo ? "🔒 ตั้งค่ากลุ่ม" : "⚙️ ตั้งค่ากลุ่ม"}
-            </Link>
-          )}
           <Link
             href="/expenses/new"
             className="primary"
             style={{
               display: "inline-flex",
               alignItems: "center",
-              gap: "6px",
-              boxShadow: isDemo ? "0 4px 14px rgba(31, 111, 83, 0.3)" : undefined,
+              gap: "8px",
+              padding: "10px 22px",
+              fontSize: "15px",
               fontWeight: 700,
+              borderRadius: "12px",
+              boxShadow: isDemo ? "0 4px 14px rgba(31, 111, 83, 0.3)" : "0 4px 14px rgba(31, 111, 83, 0.25)",
             }}
           >
             {isDemo ? "⚡ ＋ เพิ่มรายจ่าย (เปิดทดลอง)" : "＋ เพิ่มรายจ่าย"}
           </Link>
-          {!isDemo && (
-            <Link href="/balances" className="primary" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-              💳 เคลียร์เงิน / ชำระหนี้
-            </Link>
-          )}
         </div>
       </section>
 
