@@ -119,3 +119,63 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ g
     return NextResponse.json({ error: err.message ?? "เกิดข้อผิดพลาด" }, { status: 500 });
   }
 }
+
+export async function DELETE(
+  _request: NextRequest,
+  context: { params: Promise<{ groupId: string }> }
+) {
+  try {
+    const { groupId } = await context.params;
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
+    }
+
+    // ตรวจสอบสิทธิ์ว่าเป็น admin หรือผู้สร้างกลุ่ม
+    const { data: membership } = await supabase
+      .from("group_members")
+      .select("role")
+      .eq("group_id", groupId)
+      .eq("user_id", user.id)
+      .eq("role", "admin")
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!membership) {
+      return NextResponse.json(
+        { error: "เฉพาะผู้ดูแลกลุ่ม (Admin) เท่านั้นที่สามารถลบห้องได้" },
+        { status: 403 }
+      );
+    }
+
+    const { data: group } = await supabase
+      .from("groups")
+      .select("*")
+      .eq("id", groupId)
+      .single();
+
+    const { error } = await supabase.from("groups").delete().eq("id", groupId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+
+    // Audit log
+    await supabase.from("audit_logs").insert({
+      group_id: groupId,
+      actor_user_id: user.id,
+      entity_type: "group",
+      entity_id: groupId,
+      action: "deleted",
+      before_data: group,
+    });
+
+    return NextResponse.json({ ok: true, message: "ลบห้องเรียบร้อยแล้ว" });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message ?? "เกิดข้อผิดพลาด" }, { status: 500 });
+  }
+}
+

@@ -242,6 +242,7 @@ interface GroupContextType {
   clearDummyMembers: () => void;
   resetToDefaultData: () => void;
   createGroup: (data: { name: string; description?: string; weekStartsOn?: number; code?: string }) => GroupSettings;
+  deleteGroup: (groupId: string) => { success: boolean; message: string };
   groups: GroupSettings[];
   switchGroup: (groupId: string) => void;
   joinGroupByCode: (code: string) => { success: boolean; message: string; group?: GroupSettings };
@@ -563,6 +564,44 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       message: `เข้าร่วมห้อง "${found.name}" สำเร็จ!`,
       group: found,
     };
+  };
+
+  const deleteGroup = (groupId: string): { success: boolean; message: string } => {
+    if (isDemo) {
+      triggerDemoLock("การลบห้อง");
+      return { success: false, message: "โหมดทดลองใช้งานไม่สามารถลบห้องได้" };
+    }
+
+    if (groups.length <= 1) {
+      return { success: false, message: "ไม่สามารถลบได้ ต้องมีห้องอย่างน้อย 1 ห้องในระบบ" };
+    }
+
+    const targetGroup = groups.find((g) => g.id === groupId);
+    if (!targetGroup) {
+      return { success: false, message: "ไม่พบห้องที่ต้องการลบ" };
+    }
+
+    const remainingGroups = groups.filter((g) => g.id !== groupId);
+    setGroups(remainingGroups);
+
+    // หากห้องที่ลบคือห้องที่กำลังเปิดใช้งานอยู่ ให้สลับไปห้องแรกที่เหลือ
+    if (currentGroupId === groupId) {
+      setCurrentGroupId(remainingGroups[0].id);
+    }
+
+    setNotifications((prev) => [
+      {
+        id: `notif-${Date.now()}`,
+        title: "ลบห้องสำเร็จ",
+        body: `ห้อง "${targetGroup.name}" ถูกลบออกจากระบบแล้ว`,
+        type: "group_deleted",
+        read: false,
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+
+    return { success: true, message: `ลบห้อง "${targetGroup.name}" สำเร็จเรียบร้อยแล้ว` };
   };
 
   const addExpense: GroupContextType["addExpense"] = (expData) => {
@@ -1100,6 +1139,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         joinModalOpen,
         setJoinModalOpen,
         createGroup,
+        deleteGroup,
         updateGroupSettings,
         addExpense,
         voidExpense,

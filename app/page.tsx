@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { useGroup, ExpenseRecord, PaymentRecord } from "@/lib/group-context";
+import { useGroup, ExpenseRecord, PaymentRecord, GroupSettings } from "@/lib/group-context";
 import { formatTHB } from "@/lib/money";
 import { Navbar } from "@/components/Navbar";
 import { LandingPage } from "@/components/LandingPage";
@@ -28,6 +28,8 @@ function DashboardContent() {
     switchGroup,
     joinGroupByCode,
     setJoinModalOpen,
+    createGroup,
+    deleteGroup,
     members,
     expenses,
     payments,
@@ -44,6 +46,31 @@ function DashboardContent() {
   } = useGroup();
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<GroupSettings | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleOpenDeleteModal = (targetGroup: GroupSettings) => {
+    if (isDemo) {
+      triggerDemoLock("การลบห้อง");
+      return;
+    }
+    if (groups.length <= 1) {
+      alert("⚠️ ไม่สามารถลบได้ เนื่องจากระบบต้องมีห้องอย่างน้อย 1 ห้อง");
+      return;
+    }
+    setDeleteError(null);
+    setRoomToDelete(targetGroup);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!roomToDelete) return;
+    const res = deleteGroup(roomToDelete.id);
+    if (!res.success) {
+      setDeleteError(res.message);
+    } else {
+      setRoomToDelete(null);
+    }
+  };
 
   useEffect(() => {
     const joinCode = searchParams.get("join");
@@ -178,7 +205,7 @@ function DashboardContent() {
       </section>
 
       {/* ส่วนแสดงห้องทั้งหมดแบบ Google Classroom */}
-      <section style={{ marginBottom: "32px" }}>
+      <section style={{ marginBottom: "36px" }}>
         <div
           style={{
             display: "flex",
@@ -186,26 +213,29 @@ function DashboardContent() {
             alignItems: "center",
             flexWrap: "wrap",
             gap: "12px",
-            marginBottom: "16px",
+            marginBottom: "18px",
           }}
         >
           <div>
-            <h2 style={{ fontSize: "19px", fontWeight: 700, margin: "0 0 4px", display: "flex", alignItems: "center", gap: "8px" }}>
+            <p className="eyebrow" style={{ margin: "0 0 4px", fontSize: "12px" }}>
+              ระบบห้องแบบ Google Classroom · จัดการหลายกลุ่ม
+            </p>
+            <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 6px", display: "flex", alignItems: "center", gap: "8px" }}>
               <span>🏫</span> ห้องทั้งหมดของคุณ ({groups.length} ห้อง)
             </h2>
-            <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted, #6a766e)" }}>
-              ห้องสไตล์ Google Classroom · คลิกเพื่อสลับห้อง หรือส่งรหัส 6 หลักให้เพื่อนเข้าร่วม
+            <p style={{ margin: 0, fontSize: "14px", color: "var(--text-muted, #6a766e)" }}>
+              เลือกห้องที่ต้องการจัดการบิลและเคลียร์เงิน หรือใช้รหัส 6 หลักในการเข้าร่วมห้องใหม่
             </p>
           </div>
 
-          <div style={{ display: "flex", gap: "10px" }}>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <button
               type="button"
               className="primary"
               onClick={() => setJoinModalOpen(true)}
               style={{
-                padding: "8px 16px",
-                fontSize: "13px",
+                padding: "10px 18px",
+                fontSize: "14px",
                 fontWeight: 700,
                 borderRadius: "10px",
                 display: "inline-flex",
@@ -220,8 +250,8 @@ function DashboardContent() {
               href="/groups/new"
               className="secondary"
               style={{
-                padding: "8px 16px",
-                fontSize: "13px",
+                padding: "10px 18px",
+                fontSize: "14px",
                 fontWeight: 600,
                 borderRadius: "10px",
                 textDecoration: "none",
@@ -238,8 +268,8 @@ function DashboardContent() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-            gap: "18px",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: "24px",
           }}
         >
           {groups.map((g) => {
@@ -254,9 +284,9 @@ function DashboardContent() {
                   overflow: "hidden",
                   cursor: "pointer",
                   border: isActive ? "2px solid #1f6f53" : "1px solid var(--border, #e5e7eb)",
-                  boxShadow: isActive ? "0 8px 24px rgba(31, 111, 83, 0.18)" : "0 4px 12px rgba(0,0,0,0.05)",
+                  boxShadow: isActive ? "0 10px 28px rgba(31, 111, 83, 0.2)" : "0 4px 14px rgba(0,0,0,0.05)",
                   transition: "all 0.2s ease",
-                  borderRadius: "16px",
+                  borderRadius: "18px",
                   display: "flex",
                   flexDirection: "column",
                 }}
@@ -266,83 +296,90 @@ function DashboardContent() {
                   style={{
                     background: g.bannerGradient || "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
                     color: "#fff",
-                    padding: "18px",
-                    minHeight: "95px",
+                    padding: "22px 20px",
+                    minHeight: "115px",
                     display: "flex",
                     flexDirection: "column",
                     justifyContent: "space-between",
                     position: "relative",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: "18px",
-                        fontWeight: 700,
-                        color: "#fff",
-                        lineHeight: 1.3,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                      }}
-                    >
-                      {g.name}
-                    </h3>
-                    {isActive && (
-                      <span
+                  <div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+                      <h3
                         style={{
-                          background: "rgba(255,255,255,0.25)",
-                          backdropFilter: "blur(4px)",
-                          color: "#fff",
-                          padding: "2px 8px",
-                          borderRadius: "99px",
-                          fontSize: "11px",
+                          margin: 0,
+                          fontSize: "20px",
                           fontWeight: 700,
+                          color: "#fff",
+                          lineHeight: 1.3,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {g.name}
+                      </h3>
+                      {isActive && (
+                        <span
+                          style={{
+                            background: "rgba(255,255,255,0.25)",
+                            backdropFilter: "blur(4px)",
+                            color: "#fff",
+                            padding: "3px 10px",
+                            borderRadius: "99px",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          ● เปิดใช้อยู่
+                        </span>
+                      )}
+                    </div>
+                    {g.description && (
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          fontSize: "13px",
+                          color: "rgba(255,255,255,0.9)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                           whiteSpace: "nowrap",
                         }}
                       >
-                        ● กำลังเปิดอยู่
-                      </span>
+                        {g.description}
+                      </p>
                     )}
                   </div>
-                  {g.description && (
-                    <p
-                      style={{
-                        margin: "4px 0 0",
-                        fontSize: "12px",
-                        color: "rgba(255,255,255,0.85)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {g.description}
-                    </p>
-                  )}
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "rgba(255,255,255,0.95)", marginTop: "10px" }}>
+                    <span>👑 ผู้สร้าง:</span>
+                    <strong>{g.creatorMemberId === currentMemberId ? "คุณ (Admin)" : "Admin"}</strong>
+                  </div>
                 </div>
 
                 {/* Body ส่วนแสดงรหัสห้อง 6 หลัก */}
-                <div style={{ padding: "14px 16px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                <div style={{ padding: "18px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                   <div
                     style={{
                       background: "rgba(31, 111, 83, 0.05)",
-                      border: "1px dashed rgba(31, 111, 83, 0.28)",
-                      borderRadius: "10px",
-                      padding: "8px 12px",
+                      border: "1px dashed rgba(31, 111, 83, 0.3)",
+                      borderRadius: "12px",
+                      padding: "10px 14px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
-                      marginBottom: "12px",
+                      marginBottom: "16px",
                     }}
                   >
                     <div>
                       <span style={{ fontSize: "11px", color: "var(--text-muted, #6a766e)", display: "block" }}>
                         รหัสห้อง (Classroom Code)
                       </span>
-                      <strong style={{ fontFamily: "monospace", fontSize: "17px", letterSpacing: "3px", color: "#1f6f53" }}>
+                      <strong style={{ fontFamily: "monospace", fontSize: "19px", letterSpacing: "3px", color: "#1f6f53" }}>
                         {g.code}
                       </strong>
                     </div>
@@ -355,24 +392,50 @@ function DashboardContent() {
                         setCopiedCodeId(g.id);
                         setTimeout(() => setCopiedCodeId(null), 2000);
                       }}
-                      style={{ padding: "4px 8px", fontSize: "11px", borderRadius: "6px" }}
+                      style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "8px", fontWeight: 600 }}
                       title="คัดลอกรหัสห้องส่งให้เพื่อน"
                     >
-                      {copiedCodeId === g.id ? "✓ แล้ว!" : "📋 คัดลอก"}
+                      {copiedCodeId === g.id ? "✓ คัดลอกแล้ว!" : "📋 คัดลอกรหัส"}
                     </button>
                   </div>
 
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", paddingTop: "4px" }}>
-                    <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
-                      👑 {g.creatorMemberId === currentMemberId ? "คุณสร้าง" : "Admin"}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", gap: "8px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "13px", color: "var(--text-muted, #6a766e)" }}>
+                      👥 สมาชิกพร้อมแชร์
                     </span>
-                    <button
-                      type="button"
-                      className={isActive ? "primary" : "secondary"}
-                      style={{ padding: "6px 14px", fontSize: "12px", fontWeight: 700, borderRadius: "8px" }}
-                    >
-                      {isActive ? "จัดการห้องนี้ ➔" : "เข้าสู่ห้อง ➔"}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenDeleteModal(g);
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          borderRadius: "8px",
+                          border: "1px solid rgba(239, 68, 68, 0.35)",
+                          background: "rgba(239, 68, 68, 0.08)",
+                          color: "#dc2626",
+                          cursor: "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="ลบห้องนี้ออกจากระบบ"
+                      >
+                        🗑️ ลบห้อง
+                      </button>
+                      <button
+                        type="button"
+                        className={isActive ? "primary" : "secondary"}
+                        style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700, borderRadius: "10px" }}
+                      >
+                        {isActive ? "จัดการห้องนี้ ➔" : "เข้าสู่ห้อง ➔"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -681,6 +744,92 @@ function DashboardContent() {
       />
 
       <ProofModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
+
+      {/* Delete Room Confirmation Modal */}
+      {roomToDelete && (
+        <div
+          className="modal-overlay"
+          onClick={() => setRoomToDelete(null)}
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "440px",
+              width: "92%",
+              background: "var(--card-bg, #ffffff)",
+              border: "1px solid var(--border, #e5e7eb)",
+              borderRadius: "16px",
+              padding: "24px",
+              color: "var(--text-main, #1e293b)",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+              <span style={{ fontSize: "28px" }}>🗑️</span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "19px", fontWeight: 700, color: "#dc2626" }}>
+                  ยืนยันการลบห้อง
+                </h3>
+                <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
+                  การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(239, 68, 68, 0.06)",
+                border: "1px solid rgba(239, 68, 68, 0.2)",
+                borderRadius: "12px",
+                padding: "14px",
+                marginBottom: "18px",
+                fontSize: "14px",
+                lineHeight: 1.6,
+              }}
+            >
+              คุณแน่ใจหรือไม่ว่าต้องการลบห้อง <strong>&ldquo;{roomToDelete.name}&rdquo;</strong> (รหัสห้อง: <code style={{ color: "#dc2626", fontWeight: 700 }}>{roomToDelete.code}</code>)?
+              <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "6px" }}>
+                ⚠️ ข้อมูลค่าใช้จ่าย สมาชิก และประวัติการชำระเงินของห้องนี้จะถูกนำออกจากระบบ
+              </div>
+            </div>
+
+            {deleteError && (
+              <div style={{ color: "#dc2626", fontSize: "13px", marginBottom: "14px", fontWeight: 600 }}>
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setRoomToDelete(null)}
+                style={{ padding: "8px 16px", borderRadius: "10px", fontWeight: 600 }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                style={{
+                  padding: "8px 18px",
+                  borderRadius: "10px",
+                  background: "#dc2626",
+                  color: "#fff",
+                  border: "none",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 12px rgba(220, 38, 38, 0.25)",
+                }}
+              >
+                ยืนยันลบห้อง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

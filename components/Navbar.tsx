@@ -38,7 +38,6 @@ export function Navbar() {
           ...(isGroupCreator ? [{ label: "🔒 ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
       : [
-          { label: "🏫 ห้องทั้งหมด", href: "/rooms" },
           { label: "ภาพรวม", href: "/" },
           { label: "รายจ่าย", href: "/expenses" },
           { label: "เคลียร์เงิน & ชำระหนี้", href: "/balances" },
