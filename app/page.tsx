@@ -3,22 +3,19 @@
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from "recharts";
-import { useGroup, ExpenseRecord, PaymentRecord, GroupSettings } from "@/lib/group-context";
+import {
+  useGroup,
+  ExpenseRecord,
+  PaymentRecord,
+  GroupSettings,
+  CLASSROOM_GRADIENTS,
+} from "@/lib/group-context";
 import { formatTHB } from "@/lib/money";
 import { Navbar } from "@/components/Navbar";
 import { LandingPage } from "@/components/LandingPage";
 import { PaymentModal } from "@/components/PaymentModal";
 import { ProofModal } from "@/components/ProofModal";
 import { startOfWeek, endOfWeek } from "@/lib/periods";
-
-const CATEGORY_COLORS: Record<string, string> = {
-  "อาหาร": "#f18958",
-  "น้ำดื่ม": "#4e9d7b",
-  "ของใช้ส่วนกลาง": "#5a98d6",
-  "อื่น ๆ": "#d8a4e8",
-  "ทั่วไป": "#95c6b0",
-};
 
 function DashboardContent() {
   const router = useRouter();
@@ -29,7 +26,6 @@ function DashboardContent() {
     switchGroup,
     joinGroupByCode,
     setJoinModalOpen,
-    createGroup,
     deleteGroup,
     members,
     expenses,
@@ -41,7 +37,6 @@ function DashboardContent() {
     isAuthenticated,
     myOwedSatang,
     myDueSatang,
-    optimizedSettlementList,
     isDemo,
     triggerDemoLock,
   } = useGroup();
@@ -88,8 +83,12 @@ function DashboardContent() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentPreset, setPaymentPreset] = useState<{ toId: string; amount: number } | null>(null);
 
-  // คำนวณรายจ่ายสัปดาห์นี้ตาม weekStartsOn
-  const activeExpenses = expenses.filter((e) => e.status === "active");
+  // คำนวณรายจ่ายเฉพาะกลุ่มปัจจุบัน
+  const currentGroupExpenses = expenses.filter(
+    (e) => !e.groupId || e.groupId === group.id
+  );
+  const activeExpenses = currentGroupExpenses.filter((e) => e.status === "active");
+
   const now = new Date();
   const weekStart = startOfWeek(now, group.weekStartsOn).toISOString().slice(0, 10);
   const weekEnd = endOfWeek(now, group.weekStartsOn).toISOString().slice(0, 10);
@@ -98,37 +97,13 @@ function DashboardContent() {
     .filter((e) => e.expenseDate >= weekStart && e.expenseDate <= weekEnd)
     .reduce((sum, e) => sum + e.totalAmountSatang, 0);
 
-  // รายการรอตรวจสลิป (เฉพาะรายการที่ submitted และผู้รับคือเรา หรือเราเป็น admin)
+  // รายการรอตรวจสลิปเฉพาะกลุ่มปัจจุบัน
   const pendingReviewPayments = payments.filter(
-    (p) => p.status === "submitted" && (p.toMemberId === currentMemberId || isAdmin)
+    (p) =>
+      (!p.groupId || p.groupId === group.id) &&
+      p.status === "submitted" &&
+      (p.toMemberId === currentMemberId || isAdmin)
   );
-
-  // สรุปยอดตามหมวดหมู่สำหรับกราฟ
-  const categorySummary = activeExpenses.reduce((acc, e) => {
-    acc[e.categoryName] = (acc[e.categoryName] || 0) + e.totalAmountSatang;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const chartData = Object.entries(categorySummary).map(([name, satang]) => ({
-    name,
-    value: satang / 100, // แสดงเป็นบาทใน tooltip
-    amountSatang: satang,
-    color: CATEGORY_COLORS[name] || "#95c6b0",
-  }));
-
-  // รายการที่ฉันควรชำระในปัจจุบัน
-  const mySettlementsToPay = optimizedSettlementList.filter(
-    (s) => s.fromMemberId === currentMemberId
-  );
-
-  const handleOpenPay = (toId: string, amountSatang: number) => {
-    if (isDemo) {
-      triggerDemoLock("การแจ้งชำระเงินและเคลียร์หนี้");
-      return;
-    }
-    setPaymentPreset({ toId, amount: amountSatang });
-    setPaymentModalOpen(true);
-  };
 
   // หากยังไม่ได้ล็อกอิน ให้แสดงหน้า Landing Page แนะนำเว็บไซต์
   if (!isAuthenticated) {
@@ -144,271 +119,128 @@ function DashboardContent() {
     <main className="shell">
       <Navbar />
 
-      <section className="intro">
+      {/* แถบต้อนรับด้านบน */}
+      <section
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "12px",
+          marginBottom: "18px",
+        }}
+      >
         <div>
-          <p className="eyebrow">
-            กลุ่มที่กำลังเปิดใช้งาน: <strong>{group.name}</strong> · รหัสกลุ่ม: <strong style={{ fontFamily: "monospace", letterSpacing: "2px", color: "#1f6f53" }}>{group.code}</strong>
+          <h1 style={{ margin: "0 0 4px", fontSize: "24px", fontWeight: 800 }}>
+            สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋
+          </h1>
+          <p style={{ margin: 0, fontSize: "14px", color: "var(--text-muted, #6a766e)" }}>
+            จัดการบิลและแชร์ค่าใช้จ่ายในกลุ่มของคุณอย่างโปร่งใสระดับสตางค์
           </p>
-          <h1>สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋</h1>
         </div>
 
-        <div className="actions-row">
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setJoinModalOpen(true)}
+            style={{
+              padding: "8px 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "10px",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            🔑 เข้าร่วมกลุ่มด้วยรหัส
+          </button>
+          <Link
+            href="/groups/new"
+            className="secondary"
+            style={{
+              padding: "8px 14px",
+              fontSize: "13px",
+              fontWeight: 600,
+              borderRadius: "10px",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+          >
+            ＋ สร้างกลุ่มใหม่
+          </Link>
           <Link
             href="/expenses/new"
             className="primary"
             style={{
+              padding: "8px 18px",
+              fontSize: "13px",
+              fontWeight: 700,
+              borderRadius: "10px",
+              textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              padding: "10px 22px",
-              fontSize: "15px",
-              fontWeight: 700,
-              borderRadius: "12px",
-              boxShadow: isDemo ? "0 4px 14px rgba(31, 111, 83, 0.3)" : "0 4px 14px rgba(31, 111, 83, 0.25)",
+              gap: "6px",
+              boxShadow: "0 4px 12px rgba(31, 111, 83, 0.25)",
             }}
           >
-            {isDemo ? "⚡ ＋ เพิ่มรายจ่าย (เปิดทดลอง)" : "＋ เพิ่มรายจ่าย"}
+            ＋ เพิ่มรายจ่าย
           </Link>
         </div>
       </section>
 
-      {/* ส่วนแสดงกลุ่มทั้งหมด (Multi-Group Overview) */}
-      <section style={{ marginBottom: "36px" }}>
+      {/* แถบเลือกสลับกลุ่ม (Group Switcher Bar) */}
+      <section style={{ marginBottom: "20px" }}>
         <div
           style={{
+            background: "var(--card-bg, #ffffff)",
+            border: "1px solid var(--border, #e2e8f0)",
+            borderRadius: "14px",
+            padding: "10px 14px",
             display: "flex",
-            justifyContent: "space-between",
             alignItems: "center",
+            gap: "10px",
             flexWrap: "wrap",
-            gap: "12px",
-            marginBottom: "18px",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
           }}
         >
-          <div>
-            <p className="eyebrow" style={{ margin: "0 0 4px", fontSize: "12px" }}>
-              ระบบจัดการหลายกลุ่ม · Multi-Group Dashboard
-            </p>
-            <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 6px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <span>👥</span> กลุ่มทั้งหมดของคุณ ({groups.length} กลุ่ม)
-            </h2>
-            <p style={{ margin: 0, fontSize: "14px", color: "var(--text-muted, #6a766e)" }}>
-              เลือกกลุ่มที่ต้องการจัดการบิลและเคลียร์เงิน หรือใช้รหัส 6 หลักในการเข้าร่วมกลุ่มใหม่
-            </p>
-          </div>
+          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted, #6a766e)" }}>
+            👥 กลุ่มของคุณ ({groups.length}):
+          </span>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="primary"
-              onClick={() => setJoinModalOpen(true)}
-              style={{
-                padding: "10px 18px",
-                fontSize: "14px",
-                fontWeight: 700,
-                borderRadius: "10px",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                cursor: "pointer",
-              }}
-            >
-              🔑 เข้าร่วมกลุ่มด้วยรหัส
-            </button>
-            <Link
-              href="/groups/new"
-              className="secondary"
-              style={{
-                padding: "10px 18px",
-                fontSize: "14px",
-                fontWeight: 600,
-                borderRadius: "10px",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
-            >
-              ＋ สร้างกลุ่มใหม่
-            </Link>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-            gap: "24px",
-          }}
-        >
-          {groups.map((g) => {
-            const isActive = g.id === group.id;
-            return (
-              <div
-                key={g.id}
-                className="card"
-                onClick={() => switchGroup(g.id)}
-                style={{
-                  padding: 0,
-                  overflow: "hidden",
-                  cursor: "pointer",
-                  border: isActive ? "2px solid #1f6f53" : "1px solid var(--border, #e5e7eb)",
-                  boxShadow: isActive ? "0 10px 28px rgba(31, 111, 83, 0.2)" : "0 4px 14px rgba(0,0,0,0.05)",
-                  transition: "all 0.2s ease",
-                  borderRadius: "18px",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                {/* Header Banner แบบ Google Classroom */}
-                <div
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1 }}>
+            {groups.map((g) => {
+              const isActive = g.id === group.id;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => switchGroup(g.id)}
                   style={{
-                    background: g.bannerGradient || "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
-                    color: "#fff",
-                    padding: "22px 20px",
-                    minHeight: "115px",
-                    display: "flex",
-                    flexDirection: "column",
-                    justifyContent: "space-between",
-                    position: "relative",
+                    padding: "6px 14px",
+                    borderRadius: "10px",
+                    border: isActive ? "2px solid #1f6f53" : "1px solid #cbd5e1",
+                    background: isActive ? "rgba(31, 111, 83, 0.12)" : "transparent",
+                    color: isActive ? "#1f6f53" : "var(--text-main, #334155)",
+                    fontWeight: isActive ? 700 : 500,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    transition: "all 0.15s ease",
                   }}
                 >
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
-                      <h3
-                        style={{
-                          margin: 0,
-                          fontSize: "20px",
-                          fontWeight: 700,
-                          color: "#fff",
-                          lineHeight: 1.3,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: "vertical",
-                        }}
-                      >
-                        {g.name}
-                      </h3>
-                      {isActive && (
-                        <span
-                          style={{
-                            background: "rgba(255,255,255,0.25)",
-                            backdropFilter: "blur(4px)",
-                            color: "#fff",
-                            padding: "3px 10px",
-                            borderRadius: "99px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          ● เปิดใช้อยู่
-                        </span>
-                      )}
-                    </div>
-                    {g.description && (
-                      <p
-                        style={{
-                          margin: "6px 0 0",
-                          fontSize: "13px",
-                          color: "rgba(255,255,255,0.9)",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {g.description}
-                      </p>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "rgba(255,255,255,0.95)", marginTop: "10px" }}>
-                    <span>👑 ผู้สร้าง:</span>
-                    <strong>{g.creatorMemberId === currentMemberId ? "คุณ (Admin)" : "Admin"}</strong>
-                  </div>
-                </div>
-
-                {/* Body ส่วนแสดงรหัสกลุ่ม 6 หลัก */}
-                <div style={{ padding: "18px 20px", flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-                  <div
-                    style={{
-                      background: "rgba(31, 111, 83, 0.05)",
-                      border: "1px dashed rgba(31, 111, 83, 0.3)",
-                      borderRadius: "12px",
-                      padding: "10px 14px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontSize: "11px", color: "var(--text-muted, #6a766e)", display: "block" }}>
-                        รหัสกลุ่ม (Group Code)
-                      </span>
-                      <strong style={{ fontFamily: "monospace", fontSize: "19px", letterSpacing: "3px", color: "#1f6f53" }}>
-                        {g.code}
-                      </strong>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigator.clipboard.writeText(g.code);
-                        setCopiedCodeId(g.id);
-                        setTimeout(() => setCopiedCodeId(null), 2000);
-                      }}
-                      style={{ padding: "6px 12px", fontSize: "12px", borderRadius: "8px", fontWeight: 600 }}
-                      title="คัดลอกรหัสกลุ่มส่งให้เพื่อน"
-                    >
-                      {copiedCodeId === g.id ? "✓ คัดลอกแล้ว!" : "📋 คัดลอกรหัส"}
-                    </button>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto", gap: "8px", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: "13px", color: "var(--text-muted, #6a766e)" }}>
-                      👥 สมาชิกพร้อมแชร์
-                    </span>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenDeleteModal(g);
-                        }}
-                        style={{
-                          padding: "7px 12px",
-                          fontSize: "12px",
-                          fontWeight: 600,
-                          borderRadius: "8px",
-                          border: "1px solid rgba(239, 68, 68, 0.35)",
-                          background: "rgba(239, 68, 68, 0.08)",
-                          color: "#dc2626",
-                          cursor: "pointer",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          transition: "all 0.15s ease",
-                        }}
-                        title="ลบกลุ่มนี้ออกจากระบบ"
-                      >
-                        🗑️ ลบกลุ่ม
-                      </button>
-                      <button
-                        type="button"
-                        className={isActive ? "primary" : "secondary"}
-                        style={{ padding: "8px 16px", fontSize: "13px", fontWeight: 700, borderRadius: "10px" }}
-                      >
-                        {isActive ? "จัดการกลุ่มนี้ ➔" : "เข้าสู่กลุ่ม ➔"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                  <span>{isActive ? "✓" : "📁"}</span>
+                  <strong>{g.name}</strong>
+                  <span style={{ fontSize: "11px", opacity: 0.7, fontFamily: "monospace" }}>({g.code})</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -419,8 +251,8 @@ function DashboardContent() {
           style={{
             background: "linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)",
             border: "2px solid #f59e0b",
-            marginBottom: "24px",
-            padding: "18px 22px",
+            marginBottom: "20px",
+            padding: "16px 20px",
           }}
         >
           <div
@@ -429,13 +261,13 @@ function DashboardContent() {
               flexWrap: "wrap",
               justifyContent: "space-between",
               alignItems: "center",
-              gap: "14px",
+              gap: "12px",
             }}
           >
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                <span style={{ fontSize: "20px" }}>⚡</span>
-                <strong style={{ fontSize: "16px", color: "#92400e" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                <span style={{ fontSize: "18px" }}>⚡</span>
+                <strong style={{ fontSize: "15px", color: "#92400e" }}>
                   คุณกำลังอยู่ในโหมดทดลองใช้งาน (Demo Mode)
                 </strong>
                 <span
@@ -452,101 +284,293 @@ function DashboardContent() {
                 </span>
               </div>
               <p style={{ margin: 0, color: "#78350f", fontSize: "13px", lineHeight: 1.5 }}>
-                ในโหมดนี้ ระบบเปิดให้ทดลองใช้งานเฉพาะ <strong>&quot;＋ เพิ่มรายจ่าย&quot;</strong> เท่านั้น เพื่อให้คุณได้ทดสอบความแม่นยำในการหารเงินระดับสตางค์ <br />
-                ฟังก์ชันการชำระหนี้, แนบ/ตรวจสลิป, การตั้งค่ากลุ่ม และการจัดการแอดมินถูกล็อกไว้
+                ในโหมดนี้ ระบบเปิดให้ทดลองใช้งานเฉพาะ <strong>&quot;＋ เพิ่มรายจ่าย&quot;</strong> เพื่อทดสอบการคำนวณเงิน
               </p>
             </div>
-            <div style={{ display: "flex", gap: "8px", flexShrink: 0 }}>
-              <Link
-                href="/expenses/new"
-                className="primary"
-                style={{ fontSize: "13px", fontWeight: 700 }}
-              >
-                ＋ ลองเพิ่มรายจ่ายเลย
-              </Link>
-              <Link
-                href="/register"
-                className="secondary"
-                style={{
-                  fontSize: "13px",
-                  background: "#fff",
-                  color: "#92400e",
-                  borderColor: "#f59e0b",
-                  fontWeight: 600,
-                }}
-              >
-                🚀 สมัครสมาชิกเพื่อปลดล็อก
-              </Link>
-            </div>
+            <Link
+              href="/register"
+              className="primary"
+              style={{
+                fontSize: "13px",
+                background: "#fff",
+                color: "#92400e",
+                borderColor: "#f59e0b",
+                fontWeight: 600,
+              }}
+            >
+              🚀 สมัครสมาชิกเพื่อปลดล็อก
+            </Link>
           </div>
         </section>
       )}
 
-      {/* สรุปสถิติ 4 ช่อง (คลิกเพื่อไปยังหน้าที่เกี่ยวข้องทันที) */}
-      <section className="grid">
-        <Link href="/balances" className="card card-clickable" title="คลิกเพื่อไปหน้าชำระเงิน">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="stat-label">ยอดที่คุณต้องชำระ</div>
-            <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ชำระเงิน →</span>
-          </div>
-          <div className={`stat-value ${myOwedSatang > 0 ? "negative" : ""}`}>
-            {formatTHB(myOwedSatang)}
-          </div>
-          <div className="sub">
-            {myOwedSatang > 0 ? `มีข้อเสนอต้องโอน ${mySettlementsToPay.length} รายการ (คลิกเพื่อดู)` : "ไม่มีหนี้ค้างชำระ"}
-          </div>
-        </Link>
+      {/* คอนเทนเนอร์กลุ่มปัจจุบัน: ภาพรวมสถิติและรายจ่ายทั้งหมดจัดวางอยู่ภายในกลุ่มนี้ */}
+      <section
+        className="card"
+        style={{
+          padding: 0,
+          overflow: "hidden",
+          borderRadius: "18px",
+          border: "1px solid rgba(31, 111, 83, 0.25)",
+          marginBottom: "36px",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+        }}
+      >
+        {/* แบนเนอร์หัวกลุ่ม (Group Hero Header) */}
+        <div
+          style={{
+            background: group.bannerGradient || CLASSROOM_GRADIENTS[0],
+            color: "#fff",
+            padding: "24px 26px",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              flexWrap: "wrap",
+              gap: "16px",
+            }}
+          >
+            <div style={{ flex: 1, minWidth: "260px" }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  background: "rgba(255,255,255,0.2)",
+                  padding: "3px 10px",
+                  borderRadius: "99px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  marginBottom: "8px",
+                }}
+              >
+                <span>👥 กลุ่มที่กำลังเปิดใช้งาน</span>
+              </div>
 
-        <Link href="/balances" className="card card-clickable" title="คลิกเพื่อดูยอดคงเหลือ">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="stat-label">ยอดที่คุณควรได้รับ</div>
-            <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูยอด →</span>
-          </div>
-          <div className={`stat-value ${myDueSatang > 0 ? "positive" : ""}`}>
-            {formatTHB(myDueSatang)}
-          </div>
-          <div className="sub">
-            {myDueSatang > 0 ? "รอสมาชิกชำระคืน" : "ไม่มีสมาชิกค้างจ่ายคุณ"}
-          </div>
-        </Link>
+              <h2
+                style={{
+                  margin: "0 0 6px",
+                  fontSize: "26px",
+                  fontWeight: 800,
+                  letterSpacing: "-0.5px",
+                  color: "#fff",
+                }}
+              >
+                {group.name}
+              </h2>
 
-        <Link href="/expenses" className="card card-clickable" title="คลิกเพื่อดูรายการรายจ่าย">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="stat-label">รายจ่ายสัปดาห์นี้ของกลุ่ม</div>
-            <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูรายจ่าย →</span>
-          </div>
-          <div className="stat-value">{formatTHB(thisWeekTotalSatang)}</div>
-          <div className="sub">
-            เริ่มสัปดาห์: {group.weekStartsOn === 1 ? "วันจันทร์" : group.weekStartsOn === 0 ? "วันอาทิตย์" : `วันที่ ${group.weekStartsOn}`}
-          </div>
-        </Link>
+              {group.description && (
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    fontSize: "14px",
+                    color: "rgba(255,255,255,0.9)",
+                    maxWidth: "600px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {group.description}
+                </p>
+              )}
 
-        <Link href="/balances" className="card card-clickable" title="คลิกเพื่อตรวจสลิป">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div className="stat-label">รอตรวจสอบสลิป</div>
-            {pendingReviewPayments.length > 0 && (
-              <span style={{ fontSize: "11px", color: "#d97706", fontWeight: 600 }}>ตรวจสลิป →</span>
-            )}
-          </div>
-          <div className="stat-value" style={{ color: pendingReviewPayments.length > 0 ? "#d97706" : "#1f6f53" }}>
-            {pendingReviewPayments.length} รายการ
-          </div>
-          <div className="sub">
-            {pendingReviewPayments.length > 0 ? "มีสลิปใหม่รอการยืนยัน" : "เรียบร้อยทั้งหมด"}
-          </div>
-        </Link>
-      </section>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "12px",
+                  flexWrap: "wrap",
+                  fontSize: "13px",
+                }}
+              >
+                <div
+                  style={{
+                    background: "rgba(0,0,0,0.25)",
+                    padding: "4px 10px",
+                    borderRadius: "8px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span style={{ opacity: 0.85 }}>🏷️ รหัสกลุ่ม:</span>
+                  <strong style={{ fontFamily: "monospace", letterSpacing: "2px", fontSize: "15px" }}>
+                    {group.code}
+                  </strong>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(group.code);
+                      setCopiedCodeId(group.id);
+                      setTimeout(() => setCopiedCodeId(null), 2000);
+                    }}
+                    style={{
+                      background: "rgba(255,255,255,0.2)",
+                      border: "none",
+                      color: "#fff",
+                      borderRadius: "4px",
+                      padding: "2px 6px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                    }}
+                    title="คัดลอกรหัสกลุ่ม"
+                  >
+                    {copiedCodeId === group.id ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
+                  </button>
+                </div>
 
+                <span style={{ opacity: 0.9 }}>👥 สมาชิก {members.length} คน</span>
+                <span style={{ opacity: 0.9 }}>
+                  👑 {isGroupCreator ? "คุณคือผู้สร้างกลุ่ม" : "Admin"}
+                </span>
+              </div>
+            </div>
 
-      {/* คอนเทนต์หลัก 2 คอลัมน์ */}
-      <section className="content-2col">
-        {/* คอลัมน์ซ้าย: รายจ่ายล่าสุด & รายการรอตรวจสลิป */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <Link
+                href="/expenses/new"
+                className="primary"
+                style={{
+                  background: "#fff",
+                  color: "#1f6f53",
+                  fontWeight: 700,
+                  padding: "9px 16px",
+                  borderRadius: "10px",
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                }}
+              >
+                ＋ เพิ่มรายจ่ายในกลุ่มนี้
+              </Link>
+
+              {groups.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenDeleteModal(group)}
+                  style={{
+                    background: "rgba(239, 68, 68, 0.2)",
+                    border: "1px solid rgba(255,255,255,0.4)",
+                    color: "#fff",
+                    borderRadius: "10px",
+                    padding: "9px 14px",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                  title="ลบกลุ่มนี้"
+                >
+                  🗑️ ลบกลุ่ม
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ส่วนเนื้อหาภายในกลุ่ม: ภาพรวมและสถิติ 4 ช่อง */}
+        <div style={{ padding: "24px" }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "16px",
+              flexWrap: "wrap",
+              gap: "8px",
+            }}
+          >
+            <h3
+              style={{
+                margin: 0,
+                fontSize: "17px",
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
+            >
+              <span>📊</span> ภาพรวมค่าใช้จ่ายของกลุ่ม &ldquo;{group.name}&rdquo;
+            </h3>
+            <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
+              เริ่มสัปดาห์: {group.weekStartsOn === 1 ? "วันจันทร์" : "วันอาทิตย์"}
+            </span>
+          </div>
+
+          {/* สรุปสถิติ 4 ช่อง ภายในกลุ่ม */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
+              gap: "14px",
+              marginBottom: "24px",
+            }}
+          >
+            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="stat-label">ยอดที่คุณต้องชำระ</div>
+                <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ชำระเงิน →</span>
+              </div>
+              <div className={`stat-value ${myOwedSatang > 0 ? "negative" : ""}`}>
+                {formatTHB(myOwedSatang)}
+              </div>
+              <div className="sub">
+                {myOwedSatang > 0 ? "มียอดต้องเคลียร์ (คลิกเพื่อดู)" : "ไม่มีหนี้ค้างชำระ"}
+              </div>
+            </Link>
+
+            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="stat-label">ยอดที่คุณควรได้รับ</div>
+                <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูยอด →</span>
+              </div>
+              <div className={`stat-value ${myDueSatang > 0 ? "positive" : ""}`}>
+                {formatTHB(myDueSatang)}
+              </div>
+              <div className="sub">
+                {myDueSatang > 0 ? "รอสมาชิกชำระคืน" : "ไม่มีสมาชิกค้างจ่ายคุณ"}
+              </div>
+            </Link>
+
+            <Link href="/expenses" className="card card-clickable" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="stat-label">รายจ่ายสัปดาห์นี้ของกลุ่ม</div>
+                <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูรายจ่าย →</span>
+              </div>
+              <div className="stat-value">{formatTHB(thisWeekTotalSatang)}</div>
+              <div className="sub">ยอดรวมสัปดาห์นี้</div>
+            </Link>
+
+            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="stat-label">รอตรวจสอบสลิป</div>
+                {pendingReviewPayments.length > 0 && (
+                  <span style={{ fontSize: "11px", color: "#d97706", fontWeight: 600 }}>ตรวจสลิป →</span>
+                )}
+              </div>
+              <div
+                className="stat-value"
+                style={{ color: pendingReviewPayments.length > 0 ? "#d97706" : "#1f6f53" }}
+              >
+                {pendingReviewPayments.length} รายการ
+              </div>
+              <div className="sub">
+                {pendingReviewPayments.length > 0 ? "มีสลิปใหม่รอการยืนยัน" : "เรียบร้อยทั้งหมด"}
+              </div>
+            </Link>
+          </div>
+
           {/* รายการรอตรวจสลิป (ถ้ามี) */}
           {pendingReviewPayments.length > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706" }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", marginBottom: "20px" }}>
               <div className="section-title">
-                <span style={{ color: "#d97706" }}>🔔 สลิปที่รอให้คุณตรวจสอบ ({pendingReviewPayments.length})</span>
+                <span style={{ color: "#d97706" }}>
+                  🔔 สลิปที่รอให้คุณตรวจสอบ ({pendingReviewPayments.length})
+                </span>
                 <Link href="/balances" className="link">
                   ดูทั้งหมด →
                 </Link>
@@ -554,12 +578,26 @@ function DashboardContent() {
               {pendingReviewPayments.map((p) => {
                 const fromM = members.find((m) => m.id === p.fromMemberId);
                 return (
-                  <div key={p.id} className="settle" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    key={p.id}
+                    className="settle"
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
                     <div>
-                      <strong>{fromM?.name} แจ้งโอนเงิน {formatTHB(p.amountSatang)}</strong>
+                      <strong>
+                        {fromM?.name} แจ้งโอนเงิน {formatTHB(p.amountSatang)}
+                      </strong>
                       <p>แนบสลิปแล้ว · รอการยืนยันเพื่อลดหนี้</p>
                     </div>
-                    <button className="primary" style={{ padding: "7px 12px", fontSize: "12px" }} onClick={() => setSelectedPayment(p)}>
+                    <button
+                      className="primary"
+                      style={{ padding: "7px 12px", fontSize: "12px" }}
+                      onClick={() => setSelectedPayment(p)}
+                    >
                       ตรวจสลิป
                     </button>
                   </div>
@@ -568,136 +606,92 @@ function DashboardContent() {
             </div>
           )}
 
-          {/* รายจ่ายล่าสุด */}
-          <div className="card">
+          {/* รายจ่ายล่าสุดของกลุ่มนี้ (รายจ่ายล่าสุดแสดงเต็มแถว สะอาดตา ไม่รก) */}
+          <div className="card" style={{ margin: 0 }}>
             <div className="section-title">
-              <span>รายจ่ายล่าสุด</span>
-              <Link href="/expenses" className="link">
-                ดูทั้งหมด ({expenses.length}) →
-              </Link>
+              <span style={{ fontSize: "16px", fontWeight: 700 }}>🛒 รายจ่ายล่าสุดของกลุ่ม</span>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <Link href="/expenses" className="link" style={{ fontSize: "13px" }}>
+                  ดูรายจ่ายทั้งหมด ({currentGroupExpenses.length}) →
+                </Link>
+              </div>
             </div>
 
-            {expenses.slice(0, 4).map((e) => {
-              const myShare = e.shares.find((s) => s.memberId === currentMemberId)?.amountSatang ?? 0;
-              const payerNames = e.payers
-                .map((p) => members.find((m) => m.id === p.memberId)?.name ?? "สมาชิก")
-                .join(", ");
-
-              return (
-                <div className="expense" key={e.id}>
-                  <div className="icon">
-                    {e.categoryName === "อาหาร" ? "🍜" : e.categoryName === "น้ำดื่ม" ? "💧" : "🛒"}
-                  </div>
-                  <div>
-                    <div className="expense-name" style={{ textDecoration: e.status === "voided" ? "line-through" : "none" }}>
-                      {e.title} {e.status === "voided" && <span className="badge badge-voided">ยกเลิกแล้ว</span>}
-                    </div>
-                    <div className="expense-meta">
-                      {e.categoryName} · {e.expenseDate} · จ่ายโดย {payerNames}
-                    </div>
-                  </div>
-                  <div className="amount">
-                    {formatTHB(e.totalAmountSatang)}
-                    {e.status === "active" && (
-                      <small style={{ color: myShare > 0 ? "#cf4f36" : "#6a766e" }}>
-                        ส่วนของคุณ {formatTHB(myShare)}
-                      </small>
-                    )}
-                  </div>
+            {currentGroupExpenses.length === 0 ? (
+              <div className="empty-state" style={{ padding: "36px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: "40px", marginBottom: "8px" }}>📝</div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "var(--text-main, #334155)",
+                    fontSize: "16px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  ยังไม่มีรายการรายจ่ายในกลุ่มนี้
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* คอลัมน์ขวา: กราฟค่าใช้จ่าย & รายการที่ควรชำระ */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* กราฟสัดส่วนค่าใช้จ่าย */}
-          <div className="card">
-            <div className="section-title">
-              <span>สัดส่วนค่าใช้จ่ายตามหมวดหมู่</span>
-              <Link href="/expenses" className="link">
-                ดูรายจ่ายทั้งหมด →
-              </Link>
-            </div>
-
-            {chartData.length > 0 ? (
-              <>
-                <div className="chart-wrap">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius="60%"
-                        outerRadius="85%"
-                        paddingAngle={4}
-                      >
-                        {chartData.map((d) => (
-                          <Cell key={d.name} fill={d.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v) => `฿${Number(v).toLocaleString("th-TH", { minimumFractionDigits: 2 })}`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div style={{ marginTop: "12px" }}>
-                  {chartData.map((d) => (
-                    <div className="breakdown-row" key={d.name}>
-                      <span>
-                        <i className="dot" style={{ background: d.color }} />
-                        {d.name}
-                      </span>
-                      <strong>{formatTHB(d.amountSatang)}</strong>
-                    </div>
-                  ))}
-                </div>
-              </>
+                <p style={{ fontSize: "13px", color: "var(--text-muted, #6a766e)", margin: "0 0 16px" }}>
+                  กดปุ่มด้านล่างเพื่อเริ่มหารค่าใช้จ่ายกับเพื่อน ๆ ในกลุ่ม
+                </p>
+                <Link
+                  href="/expenses/new"
+                  className="primary"
+                  style={{
+                    display: "inline-flex",
+                    padding: "8px 18px",
+                    borderRadius: "10px",
+                    textDecoration: "none",
+                    fontWeight: 600,
+                  }}
+                >
+                  ＋ เพิ่มรายจ่ายแรก
+                </Link>
+              </div>
             ) : (
-              <div className="empty-state">ยังไม่มีรายการค่าใช้จ่าย</div>
-            )}
-          </div>
+              currentGroupExpenses.slice(0, 5).map((e) => {
+                const myShare =
+                  e.shares.find((s) => s.memberId === currentMemberId)?.amountSatang ?? 0;
+                const payerNames = e.payers
+                  .map((p) => members.find((m) => m.id === p.memberId)?.name ?? "สมาชิก")
+                  .join(", ");
 
-          {/* รายการที่ควรชำระตามข้อเสนอ Settlement */}
-          <div className="card">
-            <div className="section-title">
-              <span>ข้อเสนอการชำระเงินของคุณ</span>
-              <Link href="/balances" className="link">
-                ดูภาพรวมทั้งหมด →
-              </Link>
-            </div>
-
-            {mySettlementsToPay.length > 0 ? (
-              mySettlementsToPay.map((s, idx) => {
-                const toM = members.find((m) => m.id === s.toMemberId);
                 return (
-                  <div className="settle" key={idx}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <strong>โอนให้ {toM?.name}: {formatTHB(s.amountSatang)}</strong>
-                        <p>คำนวณจากยอดสุทธิเพื่อลดจำนวนการโอน</p>
-                      </div>
-                      <button
-                        className="outline"
-                        onClick={() => handleOpenPay(s.toMemberId, s.amountSatang)}
+                  <div className="expense" key={e.id}>
+                    <div className="icon">
+                      {e.categoryName === "อาหาร"
+                        ? "🍜"
+                        : e.categoryName === "น้ำดื่ม"
+                        ? "💧"
+                        : e.categoryName === "ของใช้ส่วนกลาง"
+                        ? "🛒"
+                        : "🧾"}
+                    </div>
+                    <div>
+                      <div
+                        className="expense-name"
+                        style={{ textDecoration: e.status === "voided" ? "line-through" : "none" }}
                       >
-                        แจ้งชำระเงิน
-                      </button>
+                        {e.title}{" "}
+                        {e.status === "voided" && (
+                          <span className="badge badge-voided">ยกเลิกแล้ว</span>
+                        )}
+                      </div>
+                      <div className="expense-meta">
+                        {e.categoryName} · {e.expenseDate} · จ่ายโดย {payerNames}
+                      </div>
+                    </div>
+                    <div className="amount">
+                      {formatTHB(e.totalAmountSatang)}
+                      {e.status === "active" && (
+                        <small style={{ color: myShare > 0 ? "#cf4f36" : "#6a766e" }}>
+                          ส่วนของคุณ {formatTHB(myShare)}
+                        </small>
+                      )}
                     </div>
                   </div>
                 );
               })
-            ) : (
-              <div className="empty-state" style={{ padding: "20px 0" }}>
-                🎉 คุณไม่มีหนี้ที่ต้องชำระในขณะนี้
-              </div>
             )}
-
-            <div className="notice">
-              💡 เมื่อโอนเงินแล้ว ให้กดแจ้งชำระพร้อมแนบสลิป ยอดหนี้จะปรับลดทันทีที่ผู้รับยืนยัน
-            </div>
           </div>
         </div>
       </section>
@@ -713,7 +707,7 @@ function DashboardContent() {
 
       <ProofModal payment={selectedPayment} onClose={() => setSelectedPayment(null)} />
 
-      {/* Delete Room Confirmation Modal */}
+      {/* Delete Group Confirmation Modal */}
       {roomToDelete && (
         <div
           className="modal-overlay"
@@ -757,7 +751,9 @@ function DashboardContent() {
                 lineHeight: 1.6,
               }}
             >
-              คุณแน่ใจหรือไม่ว่าต้องการลบกลุ่ม <strong>&ldquo;{roomToDelete.name}&rdquo;</strong> (รหัสกลุ่ม: <code style={{ color: "#dc2626", fontWeight: 700 }}>{roomToDelete.code}</code>)?
+              คุณแน่ใจหรือไม่ว่าต้องการลบกลุ่ม <strong>&ldquo;{roomToDelete.name}&rdquo;</strong>{" "}
+              (รหัสกลุ่ม:{" "}
+              <code style={{ color: "#dc2626", fontWeight: 700 }}>{roomToDelete.code}</code>)?
               <div style={{ fontSize: "12px", color: "#b91c1c", marginTop: "6px" }}>
                 ⚠️ ข้อมูลค่าใช้จ่าย สมาชิก และประวัติการชำระเงินของกลุ่มนี้จะถูกนำออกจากระบบ
               </div>
