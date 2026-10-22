@@ -262,6 +262,7 @@ function DashboardContent() {
           style={{
             background: group.bannerGradient || CLASSROOM_GRADIENTS[0],
             color: "#fff",
+            padding: "24px 26px",
             position: "relative",
           }}
         >
@@ -269,7 +270,7 @@ function DashboardContent() {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "flex-start",
+              alignItems: "center",
               flexWrap: "wrap",
               gap: "16px",
             }}
@@ -369,10 +370,10 @@ function DashboardContent() {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <div className="group-hero-actions" style={{ display: "flex", gap: "8px", alignItems: "center" }}>
               <Link
                 href="/expenses/new"
-                className="primary"
+                className="primary group-hero-add-btn"
                 style={{
                   background: "#fff",
                   color: "#1f6f53",
@@ -413,7 +414,7 @@ function DashboardContent() {
         </div>
 
         {/* ส่วนเนื้อหาภายในกลุ่ม: ภาพรวมและสถิติ 4 ช่อง */}
-        <div className="group-body-content">
+        <div className="group-body-content" style={{ padding: "24px" }}>
           <div
             style={{
               display: "flex",

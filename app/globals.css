@@ -2323,6 +2323,21 @@ button, a, input, select, textarea {
   z-index: 1000;
 }
 
+/* Group Hero Banner & Content */
+.group-hero-header {
+  padding: 24px 26px;
+}
+
+.group-hero-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.group-body-content {
+  padding: 24px;
+}
+
 /* Stats Grid Dashboard */
 .stats-grid-dashboard {
   display: grid;
@@ -2501,6 +2516,11 @@ button, a, input, select, textarea {
   /* Group Hero Header บนมือถือ */
   .group-hero-header {
     padding: 16px 14px !important;
+  }
+
+  .group-hero-actions {
+    width: 100%;
+    margin-top: 6px;
   }
 
   .group-body-content {
