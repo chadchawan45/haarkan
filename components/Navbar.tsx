@@ -80,7 +80,7 @@ export function Navbar() {
           {/* ปุ่มเข้าร่วมกลุ่มด้วยรหัส (Join Group) */}
           <button
             type="button"
-            className="secondary"
+            className="secondary join-group-header-btn"
             onClick={() => setJoinModalOpen(true)}
             style={{
               padding: "6px 12px",
@@ -97,7 +97,8 @@ export function Navbar() {
             }}
             title="กรอกรหัส 6 หลักเพื่อเข้าร่วมกลุ่ม"
           >
-            🔑 เข้าร่วมกลุ่ม
+            <span>🔑</span>
+            <span className="join-group-text">เข้าร่วมกลุ่ม</span>
           </button>
 
           {/* ปุ่มสลับธีมมืด / ธีมสว่าง */}
@@ -108,7 +109,7 @@ export function Navbar() {
             <>
               <Link
                 href="/profile"
-                className="secondary"
+                className="secondary desktop-only"
                 style={{
                   padding: "6px 10px",
                   fontSize: "12px",
@@ -124,7 +125,7 @@ export function Navbar() {
               </Link>
 
               <button
-                className="secondary"
+                className="secondary desktop-only"
                 onClick={logout}
                 style={{
                   padding: "6px 10px",
@@ -143,6 +144,7 @@ export function Navbar() {
                   className="icon-btn"
                   onClick={() => setShowNotifs(!showNotifs)}
                   title="การแจ้งเตือน"
+                  aria-label="การแจ้งเตือน"
                 >
                   🔔
                   {unreadNotificationCount > 0 && (
@@ -151,20 +153,7 @@ export function Navbar() {
                 </button>
 
                 {showNotifs && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: 0,
-                      top: "48px",
-                      width: "320px",
-                      background: "#fff",
-                      borderRadius: "14px",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
-                      border: "1px solid #e6eae6",
-                      padding: "16px",
-                      zIndex: 50,
-                    }}
-                  >
+                  <div className="notification-dropdown">
                     <div
                       style={{
                         display: "flex",
@@ -272,8 +261,8 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* แถบเมนูหลัก */}
-      <nav className="nav-bar">
+      {/* แถบเมนูหลัก (แสดงเฉพาะ Desktop เมื่อล็อกอินแล้ว เพื่อไม่ให้ซ้อนทับกับ Mobile Bottom Nav) */}
+      <nav className={`nav-bar ${isAuthenticated ? "desktop-only" : ""}`}>
         {navItems.map((item) => {
           const isActive =
             item.href === "/"

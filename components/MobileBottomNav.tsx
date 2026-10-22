@@ -68,7 +68,7 @@ export function MobileBottomNav() {
       {/* 2. รายการรายจ่าย */}
       <Link
         href="/expenses"
-        className={`mobile-nav-item ${pathname === "/expenses" ? "active" : ""}`}
+        className={`mobile-nav-item ${pathname.startsWith("/expenses") && pathname !== "/expenses/new" ? "active" : ""}`}
       >
         <span className="mobile-nav-icon">🧾</span>
         <span className="mobile-nav-label">รายจ่าย</span>
@@ -88,7 +88,7 @@ export function MobileBottomNav() {
       <Link
         href="/balances"
         onClick={handleBalancesClick}
-        className={`mobile-nav-item ${pathname === "/balances" ? "active" : ""}`}
+        className={`mobile-nav-item ${pathname.startsWith("/balances") ? "active" : ""}`}
       >
         <span className="mobile-nav-icon">{isDemo ? "🔒" : "💳"}</span>
         <span className="mobile-nav-label">{isDemo ? "เคลียร์หนี้" : "เคลียร์เงิน"}</span>
@@ -97,7 +97,7 @@ export function MobileBottomNav() {
       {/* 5. โปรไฟล์ส่วนตัว */}
       <Link
         href="/profile"
-        className={`mobile-nav-item ${pathname === "/profile" ? "active" : ""}`}
+        className={`mobile-nav-item ${pathname.startsWith("/profile") ? "active" : ""}`}
       >
         <div
           className="mobile-avatar-icon"

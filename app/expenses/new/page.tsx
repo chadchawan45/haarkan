@@ -234,26 +234,53 @@ export default function NewExpensePage() {
             </label>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <label className="field">
-              หมวดหมู่
-              <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {/* หมวดหมู่รายการ (Touch Chips) */}
+          <div style={{ marginBottom: "14px" }}>
+            <label className="field" style={{ marginBottom: "6px" }}>หมวดหมู่</label>
+            <div className="touch-chip-grid">
+              {CATEGORIES.map((c) => {
+                const isSelected = categoryId === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCategoryId(c.id)}
+                    className={`touch-chip ${isSelected ? "active" : ""}`}
+                  >
+                    <span style={{ fontSize: "16px" }}>{c.icon}</span>
+                    <span>{c.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-            <label className="field">
-              วิธีการหาร
-              <select value={mode} onChange={(e) => setMode(e.target.value as SplitMode)}>
-                <option value="equal">หารเท่ากัน (Equal Split)</option>
-                <option value="custom">กำหนดจำนวนเงินเอง (Custom)</option>
-                <option value="weighted">แบ่งตามสัดส่วนน้ำหนัก (Weighted)</option>
-              </select>
-            </label>
+          {/* วิธีการหาร (Split Mode Pills) */}
+          <div style={{ marginBottom: "14px" }}>
+            <label className="field" style={{ marginBottom: "6px" }}>วิธีการหาร</label>
+            <div className="segmented-control">
+              <button
+                type="button"
+                onClick={() => setMode("equal")}
+                className={`seg-btn ${mode === "equal" ? "active" : ""}`}
+              >
+                🤝 หารเท่ากัน
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("custom")}
+                className={`seg-btn ${mode === "custom" ? "active" : ""}`}
+              >
+                ✏️ กำหนดเอง
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("weighted")}
+                className={`seg-btn ${mode === "weighted" ? "active" : ""}`}
+              >
+                ⚖️ สัดส่วน
+              </button>
+            </div>
           </div>
 
           <label className="field">
@@ -268,38 +295,78 @@ export default function NewExpensePage() {
 
           {/* ส่วนระบุผู้จ่ายเงินจริง (Multiple Payers) */}
           <div className="section-title" style={{ marginTop: "24px" }}>
-            <span>ผู้สำรองจ่ายจริง</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>ผู้สำรองจ่ายจริง</span>
+              <button
+                type="button"
+                className="link"
+                style={{ fontSize: "12px" }}
+                onClick={() => {
+                  setSelectedPayers([currentMemberId]);
+                  setPayerAmounts({ [currentMemberId]: bahtInput });
+                }}
+              >
+                (ฉันจ่ายคนเดียว)
+              </button>
+            </div>
             <small>ต้องรวมให้ได้ {formatTHB(totalSatang)}</small>
           </div>
 
-          {activeMembers.map((m) => (
-            <div className="member-check-row" key={m.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedPayers.includes(m.id)}
-                  onChange={() => togglePayer(m.id)}
-                />
-                <span>{m.name}</span>
-              </label>
-
-              {selectedPayers.includes(m.id) && (
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          {activeMembers.map((m) => {
+            const isChecked = selectedPayers.includes(m.id);
+            return (
+              <div
+                className={`member-check-card ${isChecked ? "selected" : ""}`}
+                key={m.id}
+                onClick={() => togglePayer(m.id)}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
                   <input
-                    type="text"
-                    inputMode="decimal"
-                    className="mini-input"
-                    value={payerAmounts[m.id] ?? ""}
-                    onChange={(e) =>
-                      setPayerAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
-                    }
-                    placeholder="บาท"
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => {}} // handled by parent onClick
+                    style={{ width: "18px", height: "18px", cursor: "pointer", pointerEvents: "none" }}
                   />
-                  <span style={{ fontSize: "12px", color: "#666" }}>฿</span>
+                  <div
+                    className="avatar-mini"
+                    style={{ background: m.avatarColor || "#1f6f53" }}
+                  >
+                    {(m.nickname || m.name).slice(0, 1)}
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: "14px" }}>
+                      {m.nickname ? `${m.nickname} (${m.name})` : m.name}
+                    </span>
+                    {m.id === currentMemberId && (
+                      <span style={{ fontSize: "11px", color: "var(--primary)", marginLeft: "4px", fontWeight: 700 }}>
+                        (คุณ)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {isChecked && (
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: "6px" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      className="mini-input"
+                      value={payerAmounts[m.id] ?? ""}
+                      onChange={(e) =>
+                        setPayerAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
+                      }
+                      placeholder="0.00"
+                      style={{ width: "90px", textAlign: "right" }}
+                    />
+                    <span style={{ fontSize: "12px", color: "#666" }}>฿</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           <p
             style={{
@@ -315,58 +382,104 @@ export default function NewExpensePage() {
 
           {/* ส่วนระบุผู้ร่วมรับผิดชอบค่าใช้จ่าย */}
           <div className="section-title" style={{ marginTop: "24px" }}>
-            <span>ผู้ร่วมรับผิดชอบค่าใช้จ่าย</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span>ผู้ร่วมรับผิดชอบค่าใช้จ่าย ({selectedParticipants.length}/{activeMembers.length})</span>
+              <button
+                type="button"
+                className="link"
+                style={{ fontSize: "12px" }}
+                onClick={() => setSelectedParticipants(activeMembers.map((m) => m.id))}
+              >
+                เลือกทุกคน
+              </button>
+              <button
+                type="button"
+                className="link"
+                style={{ fontSize: "12px", color: "#666" }}
+                onClick={() => setSelectedParticipants([currentMemberId])}
+              >
+                เฉพาะฉัน
+              </button>
+            </div>
             <small>เลือกสมาชิกที่ต้องหาร</small>
           </div>
 
-          {activeMembers.map((m) => (
-            <div className="member-check-row" key={m.id}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selectedParticipants.includes(m.id)}
-                  onChange={() => toggleParticipant(m.id)}
-                />
-                <span>{m.name}</span>
-              </label>
-
-              {selectedParticipants.includes(m.id) && (
-                <div>
-                  {mode === "equal" && <small style={{ color: "#666" }}>หารเท่ากัน</small>}
-                  {mode === "custom" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="mini-input"
-                        value={customShares[m.id] ?? ""}
-                        onChange={(e) =>
-                          setCustomShares((prev) => ({ ...prev, [m.id]: e.target.value }))
-                        }
-                        placeholder="บาท"
-                      />
-                      <span style={{ fontSize: "12px", color: "#666" }}>฿</span>
-                    </div>
-                  )}
-                  {mode === "weighted" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span style={{ fontSize: "12px", color: "#666" }}>น้ำหนัก:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        className="mini-input"
-                        style={{ width: "70px" }}
-                        value={weights[m.id] ?? "1"}
-                        onChange={(e) =>
-                          setWeights((prev) => ({ ...prev, [m.id]: e.target.value }))
-                        }
-                      />
-                    </div>
-                  )}
+          {activeMembers.map((m) => {
+            const isChecked = selectedParticipants.includes(m.id);
+            return (
+              <div
+                className={`member-check-card ${isChecked ? "selected" : ""}`}
+                key={m.id}
+                onClick={() => toggleParticipant(m.id)}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => {}} // handled by parent onClick
+                    style={{ width: "18px", height: "18px", cursor: "pointer", pointerEvents: "none" }}
+                  />
+                  <div
+                    className="avatar-mini"
+                    style={{ background: m.avatarColor || "#1f6f53" }}
+                  >
+                    {(m.nickname || m.name).slice(0, 1)}
+                  </div>
+                  <div>
+                    <span style={{ fontWeight: 600, fontSize: "14px" }}>
+                      {m.nickname ? `${m.nickname} (${m.name})` : m.name}
+                    </span>
+                    {m.id === currentMemberId && (
+                      <span style={{ fontSize: "11px", color: "var(--primary)", marginLeft: "4px", fontWeight: 700 }}>
+                        (คุณ)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {isChecked && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    {mode === "equal" && (
+                      <span style={{ fontSize: "12px", color: "var(--primary)", fontWeight: 600 }}>
+                        หารเท่า
+                      </span>
+                    )}
+                    {mode === "custom" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          className="mini-input"
+                          value={customShares[m.id] ?? ""}
+                          onChange={(e) =>
+                            setCustomShares((prev) => ({ ...prev, [m.id]: e.target.value }))
+                          }
+                          placeholder="0.00"
+                          style={{ width: "90px", textAlign: "right" }}
+                        />
+                        <span style={{ fontSize: "12px", color: "#666" }}>฿</span>
+                      </div>
+                    )}
+                    {mode === "weighted" && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "12px", color: "#666" }}>น้ำหนัก:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          className="mini-input"
+                          style={{ width: "60px", textAlign: "center" }}
+                          value={weights[m.id] ?? "1"}
+                          onChange={(e) =>
+                            setWeights((prev) => ({ ...prev, [m.id]: e.target.value }))
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
 
           <button
             type="submit"

@@ -177,7 +177,7 @@ export function PaymentModal({
         className="modal-card"
         onClick={(e) => e.stopPropagation()}
         style={{
-          maxHeight: "90vh",
+          maxHeight: "90dvh",
           overflowY: "auto",
           maxWidth: "460px",
           width: "95%",

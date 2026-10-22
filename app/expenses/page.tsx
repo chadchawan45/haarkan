@@ -79,60 +79,44 @@ export default function ExpensesListPage() {
       </section>
 
       {/* Filter Toolbar */}
-      <div className="card" style={{ marginBottom: "20px", padding: "14px 18px" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
+      <div className="card filter-toolbar-card" style={{ marginBottom: "20px" }}>
+        <div className="filter-toolbar-content">
+          <div className="filter-inputs-grid">
             <input
               type="text"
               placeholder="🔍 ค้นหาชื่อรายการ..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{
-                border: "1px solid #d0d7d1",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                width: "200px",
-              }}
+              className="filter-search-input"
             />
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                border: "1px solid #d0d7d1",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                background: "#fff",
-              }}
-            >
-              <option value="all">สถานะ: ทั้งหมด</option>
-              <option value="active">เฉพาะที่ใช้งานอยู่ (Active)</option>
-              <option value="voided">เฉพาะที่ยกเลิกแล้ว (Voided)</option>
-            </select>
+            <div className="filter-selects-row">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">สถานะ: ทั้งหมด</option>
+                <option value="active">เฉพาะใช้งานอยู่</option>
+                <option value="voided">เฉพาะยกเลิกแล้ว</option>
+              </select>
 
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              style={{
-                border: "1px solid #d0d7d1",
-                borderRadius: "8px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                background: "#fff",
-              }}
-            >
-              <option value="all">หมวดหมู่: ทั้งหมด</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">หมวดหมู่: ทั้งหมด</option>
+                {categories.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          <span style={{ fontSize: "13px", color: "#666" }}>
+          <span className="filter-count-badge">
             พบ <strong>{filteredExpenses.length}</strong> รายการ
           </span>
         </div>

@@ -115,13 +115,14 @@ export default function BalancesPage() {
           </small>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px" }}>
+        <div className="net-balances-grid">
           {members.map((m) => {
             const balance = netBalances.get(m.id) ?? 0;
             const isMe = m.id === currentMemberId;
             return (
               <div
                 key={m.id}
+                className={`net-balance-card ${isMe ? "is-me" : ""}`}
                 style={{
                   background: isMe ? "#f0f8f4" : "#fbfcfb",
                   border: isMe ? "2px solid #1f6f53" : "1px solid #e6eae6",
@@ -167,7 +168,7 @@ export default function BalancesPage() {
           </div>
 
           {/* Tab switcher: Optimized vs Direct */}
-          <div className="tab-pills" style={{ margin: 0, width: "320px" }}>
+          <div className="tab-pills settlement-mode-tabs">
             <button
               className={`tab-pill ${settlementMode === "optimized" ? "active" : ""}`}
               onClick={() => setSettlementMode("optimized")}
@@ -186,7 +187,7 @@ export default function BalancesPage() {
         {activeSettlements.length === 0 ? (
           <div className="empty-state">🎉 ยอดคงเหลือทุกคนเคลียร์หมดแล้ว ไม่มีรายการที่ต้องโอน!</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "14px" }}>
+          <div className="settlement-cards-grid">
             {activeSettlements.map((s, idx) => {
               const fromM = members.find((m) => m.id === s.fromMemberId);
               const toM = members.find((m) => m.id === s.toMemberId);

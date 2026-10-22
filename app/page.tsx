@@ -120,70 +120,35 @@ function DashboardContent() {
       <Navbar />
 
       {/* แถบต้อนรับด้านบน */}
-      <section
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "12px",
-          marginBottom: "18px",
-        }}
-      >
+      <section className="welcome-section">
         <div>
-          <h1 style={{ margin: "0 0 4px", fontSize: "24px", fontWeight: 800 }}>
+          <h1 className="welcome-title">
             สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋
           </h1>
-          <p style={{ margin: 0, fontSize: "14px", color: "var(--text-muted, #6a766e)" }}>
+          <p className="welcome-subtitle">
             จัดการบิลและแชร์ค่าใช้จ่ายในกลุ่มของคุณอย่างโปร่งใสระดับสตางค์
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+        <div className="welcome-actions">
           <button
             type="button"
-            className="secondary"
+            className="secondary touch-action-btn"
             onClick={() => setJoinModalOpen(true)}
-            style={{
-              padding: "8px 14px",
-              fontSize: "13px",
-              fontWeight: 600,
-              borderRadius: "10px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
+            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมกลุ่ม"
           >
-            🔑 เข้าร่วมกลุ่มด้วยรหัส
+            🔑 เข้าร่วมกลุ่ม
           </button>
           <Link
             href="/groups/new"
-            className="secondary"
-            style={{
-              padding: "8px 14px",
-              fontSize: "13px",
-              fontWeight: 600,
-              borderRadius: "10px",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
-            }}
+            className="secondary touch-action-btn"
           >
-            ＋ สร้างกลุ่มใหม่
+            ＋ สร้างกลุ่ม
           </Link>
           <Link
             href="/expenses/new"
-            className="primary"
+            className="primary touch-action-btn"
             style={{
-              padding: "8px 18px",
-              fontSize: "13px",
-              fontWeight: 700,
-              borderRadius: "10px",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "6px",
               boxShadow: "0 4px 12px rgba(31, 111, 83, 0.25)",
             }}
           >
@@ -194,24 +159,12 @@ function DashboardContent() {
 
       {/* แถบเลือกสลับกลุ่ม (Group Switcher Bar) */}
       <section style={{ marginBottom: "20px" }}>
-        <div
-          style={{
-            background: "var(--card-bg, #ffffff)",
-            border: "1px solid var(--border, #e2e8f0)",
-            borderRadius: "14px",
-            padding: "10px 14px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-            flexWrap: "wrap",
-            boxShadow: "0 2px 8px rgba(0,0,0,0.03)",
-          }}
-        >
-          <span style={{ fontSize: "13px", fontWeight: 700, color: "var(--text-muted, #6a766e)" }}>
+        <div className="group-switcher-bar">
+          <span className="group-switcher-label">
             👥 กลุ่มของคุณ ({groups.length}):
           </span>
 
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", flex: 1 }}>
+          <div className="group-switcher-scroll">
             {groups.map((g) => {
               const isActive = g.id === group.id;
               return (
@@ -219,24 +172,11 @@ function DashboardContent() {
                   key={g.id}
                   type="button"
                   onClick={() => switchGroup(g.id)}
-                  style={{
-                    padding: "6px 14px",
-                    borderRadius: "10px",
-                    border: isActive ? "2px solid #1f6f53" : "1px solid #cbd5e1",
-                    background: isActive ? "rgba(31, 111, 83, 0.12)" : "transparent",
-                    color: isActive ? "#1f6f53" : "var(--text-main, #334155)",
-                    fontWeight: isActive ? 700 : 500,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    transition: "all 0.15s ease",
-                  }}
+                  className={`group-pill ${isActive ? "active" : ""}`}
                 >
                   <span>{isActive ? "✓" : "📁"}</span>
                   <strong>{g.name}</strong>
-                  <span style={{ fontSize: "11px", opacity: 0.7, fontFamily: "monospace" }}>({g.code})</span>
+                  <span className="group-pill-code">({g.code})</span>
                 </button>
               );
             })}
@@ -318,10 +258,10 @@ function DashboardContent() {
       >
         {/* แบนเนอร์หัวกลุ่ม (Group Hero Header) */}
         <div
+          className="group-hero-header"
           style={{
             background: group.bannerGradient || CLASSROOM_GRADIENTS[0],
             color: "#fff",
-            padding: "24px 26px",
             position: "relative",
           }}
         >
@@ -473,7 +413,7 @@ function DashboardContent() {
         </div>
 
         {/* ส่วนเนื้อหาภายในกลุ่ม: ภาพรวมและสถิติ 4 ช่อง */}
-        <div style={{ padding: "24px" }}>
+        <div className="group-body-content">
           <div
             style={{
               display: "flex",
@@ -502,14 +442,7 @@ function DashboardContent() {
           </div>
 
           {/* สรุปสถิติ 4 ช่อง ภายในกลุ่ม */}
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))",
-              gap: "14px",
-              marginBottom: "24px",
-            }}
-          >
+          <div className="stats-grid-dashboard">
             <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">ยอดที่คุณต้องชำระ</div>
