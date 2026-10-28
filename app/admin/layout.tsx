@@ -17,6 +17,7 @@ const NAV_ITEMS = [
   { label: "ภาพรวมระบบ", href: "/admin", icon: "📊" },
   { label: "จัดการสมาชิก", href: "/admin/users", icon: "👥" },
   { label: "จัดการกลุ่มและข้อมูล", href: "/admin/groups", icon: "🏢" },
+  { label: "ส่งแจ้งเตือน/ประกาศ", href: "/admin/notifications", icon: "🔔" },
   { label: "ประวัติ Audit Logs", href: "/admin/audit-logs", icon: "📜" },
   { label: "รายงานและส่งออก", href: "/admin/reports", icon: "📈" },
   { label: "ตรวจสอบระบบ", href: "/admin/monitoring", icon: "🛠️" },

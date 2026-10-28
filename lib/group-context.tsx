@@ -465,6 +465,14 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
               return newPays.length > 0 ? [...newPays, ...prev] : prev;
             });
           }
+
+          if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+            setNotifications((prev) => {
+              const existingIds = new Set(prev.map((n) => n.id));
+              const newNotifs = data.notifications.filter((n: NotificationItem) => !existingIds.has(n.id));
+              return newNotifs.length > 0 ? [...newNotifs, ...prev] : prev;
+            });
+          }
         })
         .catch(() => {});
     };

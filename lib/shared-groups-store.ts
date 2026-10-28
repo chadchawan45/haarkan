@@ -48,6 +48,7 @@ interface StoreData {
   expenses: any[];
   payments: any[];
   members: any[];
+  notifications?: any[];
   systemAuditLogs?: SystemAuditLogItem[];
   siteSettings?: SiteSettingsData;
   lastUpdated: string;
@@ -620,4 +621,49 @@ export function getAdminOverviewStats(): {
     recentAuditLogs: (store.systemAuditLogs || []).slice(0, 8),
     recentMembers,
   };
+}
+
+export function broadcastNotification(payload: {
+  title: string;
+  body: string;
+  type?: string;
+  link?: string;
+}): { success: boolean; count: number; notification: any } {
+  const store = readStore();
+  if (!store.notifications) store.notifications = [];
+
+  const newNotification = {
+    id: `notif-broadcast-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    title: payload.title,
+    body: payload.body,
+    type: payload.type || "broadcast",
+    read: false,
+    createdAt: new Date().toISOString(),
+    link: payload.link || "/",
+  };
+
+  store.notifications.unshift(newNotification);
+  if (store.notifications.length > 500) {
+    store.notifications = store.notifications.slice(0, 500);
+  }
+
+  writeStore(store);
+  return { success: true, count: store.members?.length || 0, notification: newNotification };
+}
+
+export function restoreStoreData(data: any): { success: boolean; message: string } {
+  if (!data || typeof data !== "object") {
+    return { success: false, message: "รูปแบบไฟล์สำรองข้อมูลไม่ถูกต้อง" };
+  }
+
+  const store = readStore();
+  if (Array.isArray(data.groups)) store.groups = data.groups;
+  if (Array.isArray(data.members)) store.members = data.members;
+  if (Array.isArray(data.expenses)) store.expenses = data.expenses;
+  if (Array.isArray(data.payments)) store.payments = data.payments;
+  if (Array.isArray(data.notifications)) store.notifications = data.notifications;
+  if (data.siteSettings) store.siteSettings = data.siteSettings;
+
+  writeStore(store);
+  return { success: true, message: "กู้คืนข้อมูลจากไฟล์สำรองสำเร็จเรียบร้อยแล้ว" };
 }

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useGroup } from "@/lib/group-context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DemoBanner } from "@/components/DemoBanner";
+import { SiteAnnouncementBanner } from "@/components/SiteAnnouncementBanner";
 import { JoinRoomModal } from "@/components/JoinRoomModal";
 
 export function Navbar() {
@@ -56,6 +57,9 @@ export function Navbar() {
 
   return (
     <header>
+      {/* แถบประกาศสำคัญจากผู้ดูแลระบบ */}
+      <SiteAnnouncementBanner />
+
       {/* แถบแจ้งเตือนสถานะ Demo Mode */}
       <DemoBanner />
 

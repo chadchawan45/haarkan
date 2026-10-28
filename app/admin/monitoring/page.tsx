@@ -29,6 +29,8 @@ export default function AdminMonitoringPage() {
   const [health, setHealth] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const fetchHealth = async () => {
     try {
@@ -68,6 +70,44 @@ export default function AdminMonitoringPage() {
       window.URL.revokeObjectURL(url);
     } catch {
       alert("เกิดข้อผิดพลาดในการสร้างไฟล์สำรอง");
+    }
+  };
+
+  const handleRestoreFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm(`คำเตือน: คุณต้องการกู้คืนข้อมูลจากไฟล์ "${file.name}" ใช่หรือไม่?\nการดำเนินการนี้จะอัปเดตและเขียนทับข้อมูลในระบบด้วยข้อมูลในไฟล์`)) {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    try {
+      setRestoring(true);
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+
+      const res = await fetch("/api/admin/system/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        alert(data.message || "ไม่สามารถกู้คืนข้อมูลได้");
+        setRestoring(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+
+      alert("กู้คืนข้อมูลจากไฟล์สำรองสำเร็จเรียบร้อยแล้ว!");
+      fetchHealth();
+    } catch (err: any) {
+      alert("เกิดข้อผิดพลาด: ไฟล์สำรองข้อมูลอาจเสียหายหรือไม่ตรงรูปแบบ JSON");
+    } finally {
+      setRestoring(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -240,25 +280,55 @@ export default function AdminMonitoringPage() {
                   ดาวน์โหลดไฟล์สำรองข้อมูล Snapshot JSON (กลุ่ม สมาชิก รายจ่าย และการชำระเงินทั้งหมด) ทันที
                 </p>
               </div>
-              <button
-                onClick={handleBackupDownload}
-                style={{
-                  padding: "10px 18px",
-                  background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                  border: "none",
-                  borderRadius: "10px",
-                  color: "#ffffff",
-                  fontSize: "13px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-              >
-                <span>💾</span>
-                <span>ดาวน์โหลดสำรองข้อมูล (JSON)</span>
-              </button>
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept=".json,application/json"
+                  style={{ display: "none" }}
+                  onChange={handleRestoreFile}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={restoring}
+                  style={{
+                    padding: "10px 18px",
+                    background: "rgba(255, 255, 255, 0.08)",
+                    border: "1px solid var(--border-color, rgba(255, 255, 255, 0.15))",
+                    borderRadius: "10px",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: restoring ? "not-allowed" : "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span>📥</span>
+                  <span>{restoring ? "กำลังกู้คืนข้อมูล..." : "กู้คืนข้อมูลจากไฟล์ (Restore)"}</span>
+                </button>
+
+                <button
+                  onClick={handleBackupDownload}
+                  style={{
+                    padding: "10px 18px",
+                    background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                    border: "none",
+                    borderRadius: "10px",
+                    color: "#ffffff",
+                    fontSize: "13px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <span>💾</span>
+                  <span>ดาวน์โหลดสำรองข้อมูล (JSON)</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

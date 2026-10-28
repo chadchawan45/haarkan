@@ -10,6 +10,7 @@ export async function GET() {
       members: store.members,
       expenses: store.expenses,
       payments: store.payments,
+      notifications: store.notifications || [],
     });
   } catch (err: any) {
     return NextResponse.json(
