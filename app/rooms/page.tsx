@@ -13,7 +13,7 @@ export default function RoomsPage() {
   return (
     <main className="shell">
       <div style={{ textAlign: "center", padding: "80px 20px", color: "var(--text-muted, #6a766e)" }}>
-        กำลังนำทางไปที่หน้าภาพรวม...
+        กำลังนำทางไปที่หน้าหลัก...
       </div>
     </main>
   );

@@ -174,7 +174,7 @@ function LoginForm() {
             )}
             <div style={{ marginTop: "8px" }}>
               <Link href="/" className="link" style={{ marginRight: "12px" }}>
-                ➔ ไปหน้าภาพรวม
+                ➔ ไปหน้าหลัก
               </Link>
             </div>
           </div>

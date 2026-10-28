@@ -150,7 +150,7 @@ export default function NewExpensePage() {
             หากคุณต้องการบันทึกรายจ่าย กรุณาติดต่อผู้ดูแลกลุ่ม หรือเข้าสู่ระบบด้วยบัญชีผู้ดูแล
           </p>
           <Link href="/" className="primary">
-            ← กลับหน้าภาพรวม
+            ← กลับหน้าหลัก
           </Link>
         </div>
       </main>

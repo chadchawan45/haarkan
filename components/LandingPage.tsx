@@ -46,7 +46,7 @@ export function LandingPage() {
             👋 คุณกำลังเข้าสู่ระบบในชื่อ <strong>{currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name}</strong>
           </span>
           <Link href="/" className="primary" style={{ padding: "6px 14px", fontSize: "13px" }}>
-            ➔ ไปยังหน้าภาพรวม (Dashboard)
+            ➔ ไปยังหน้าหลัก (Dashboard)
           </Link>
         </div>
       )}

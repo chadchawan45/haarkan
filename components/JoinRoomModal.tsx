@@ -179,7 +179,7 @@ export function JoinRoomModal() {
                   setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8));
                   setError("");
                 }}
-                placeholder="เช่น 7K9M2P"
+                placeholder="กรอกรหัส 6 หลัก"
                 maxLength={8}
                 autoFocus
                 style={{
@@ -213,42 +213,6 @@ export function JoinRoomModal() {
                 }}
               >
                 ⚠️ {error}
-              </div>
-            )}
-
-            {/* รหัสกลุ่มแนะนำหรือกลุ่มที่มีอยู่แล้วสำหรับคลิกทดสอบได้รวดเร็ว */}
-            {groups && groups.length > 0 && (
-              <div style={{ marginBottom: "18px" }}>
-                <span style={{ fontSize: "11px", color: "#777", display: "block", marginBottom: "6px" }}>
-                  💡 หรือเลือกรหัสกลุ่มที่มีอยู่แล้วในระบบ:
-                </span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {groups.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => {
-                        setCode(g.code);
-                        handleJoin(g.code);
-                      }}
-                      style={{
-                        background: "#f1f5f9",
-                        border: "1px solid #cbd5e1",
-                        borderRadius: "8px",
-                        padding: "4px 10px",
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <span>{g.name}:</span>
-                      <strong style={{ color: "#1f6f53", fontFamily: "monospace" }}>{g.code}</strong>
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
 

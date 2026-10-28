@@ -78,7 +78,7 @@ export default function SettingsPage() {
           </p>
           <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
             <Link href="/" className="primary">
-              ➔ กลับหน้าภาพรวม
+              ➔ กลับหน้าหลัก
             </Link>
             <Link href="/groups/new" className="secondary">
               ＋ สร้างกลุ่มใหม่ของคุณเอง

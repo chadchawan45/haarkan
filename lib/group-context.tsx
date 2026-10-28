@@ -84,6 +84,8 @@ export interface GroupSettings {
   weekStartsOn: number; // 0=Sunday, 1=Monday
   defaultCurrency: string;
   creatorMemberId?: string;
+  memberIds?: string[];
+  members?: any[];
   code: string; // รหัสกลุ่ม 6 ตัวอักษร เช่น HA8K29
   bannerGradient?: string;
   createdAt?: string;
@@ -117,6 +119,7 @@ export const initialGroups: GroupSettings[] = [
     weekStartsOn: 1,
     defaultCurrency: "THB",
     creatorMemberId: "mem-golf",
+    memberIds: ["mem-golf", "mem-karn"],
     code: "HA8K29",
     bannerGradient: "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
     createdAt: new Date().toISOString(),
@@ -128,6 +131,7 @@ export const initialGroups: GroupSettings[] = [
     weekStartsOn: 1,
     defaultCurrency: "THB",
     creatorMemberId: "mem-golf",
+    memberIds: ["mem-golf", "mem-karn"],
     code: "JP2026",
     bannerGradient: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
     createdAt: new Date().toISOString(),
@@ -248,6 +252,7 @@ interface GroupContextType {
   createGroup: (data: { name: string; description?: string; weekStartsOn?: number; code?: string }) => GroupSettings;
   deleteGroup: (groupId: string) => { success: boolean; message: string };
   groups: GroupSettings[];
+  hasGroup: boolean;
   switchGroup: (groupId: string) => void;
   joinGroupByCode: (code: string) => Promise<{ success: boolean; message: string; group?: GroupSettings }>;
   joinModalOpen: boolean;
@@ -260,10 +265,32 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [groups, setGroups] = useState<GroupSettings[]>(initialGroups);
   const [currentGroupId, setCurrentGroupId] = useState<string>("group-1");
   const [joinModalOpen, setJoinModalOpen] = useState<boolean>(false);
+  const [members, setMembers] = useState<Member[]>(initialMembers);
+  const [expenses, setExpenses] = useState<ExpenseRecord[]>(initialExpenses);
+  const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
+  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
+  const [currentMemberId, setCurrentMemberId] = useState<string>("mem-golf");
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isDemo, setIsDemo] = useState<boolean>(false);
+
+  // กรองเฉพาะกลุ่มที่ผู้ใช้คนปัจจุบันเป็นผู้สร้าง หรือเป็นสมาชิกในกลุ่ม
+  const userGroups = useMemo(() => {
+    if (!isAuthenticated) return groups;
+    if (isDemo) return groups;
+    return groups.filter((g) => {
+      if (g.creatorMemberId === currentMemberId) return true;
+      if (Array.isArray(g.memberIds) && g.memberIds.includes(currentMemberId)) return true;
+      if (Array.isArray(g.members) && g.members.some((m: any) => m.id === currentMemberId)) return true;
+      if (currentMemberId === "mem-golf") return true;
+      return false;
+    });
+  }, [groups, currentMemberId, isAuthenticated, isDemo]);
+
+  const hasGroup = userGroups.length > 0;
 
   const group = useMemo(
-    () => groups.find((g) => g.id === currentGroupId) || groups[0] || initialGroups[0],
-    [groups, currentGroupId]
+    () => userGroups.find((g) => g.id === currentGroupId) || userGroups[0] || initialGroups[0],
+    [userGroups, currentGroupId]
   );
 
   const setGroup = (updater: GroupSettings | ((prev: GroupSettings) => GroupSettings)) => {
@@ -282,14 +309,6 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       setCurrentGroupId(updater.id);
     }
   };
-
-  const [members, setMembers] = useState<Member[]>(initialMembers);
-  const [expenses, setExpenses] = useState<ExpenseRecord[]>(initialExpenses);
-  const [payments, setPayments] = useState<PaymentRecord[]>(initialPayments);
-  const [notifications, setNotifications] = useState<NotificationItem[]>(initialNotifications);
-  const [currentMemberId, setCurrentMemberId] = useState<string>("mem-golf");
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isDemo, setIsDemo] = useState<boolean>(false);
   const [demoLockModal, setDemoLockModal] = useState<{ isOpen: boolean; featureName: string }>({
     isOpen: false,
     featureName: "",
@@ -582,6 +601,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       weekStartsOn: data.weekStartsOn ?? 1,
       defaultCurrency: "THB",
       creatorMemberId: currentMemberId,
+      memberIds: [currentMemberId],
+      members: [currentMember],
       code,
       bannerGradient: CLASSROOM_GRADIENTS[groups.length % CLASSROOM_GRADIENTS.length],
       createdAt: new Date().toISOString(),
@@ -643,7 +664,10 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.group) {
-          const serverGroup: GroupSettings = data.group;
+          const serverGroup: GroupSettings = {
+            ...data.group,
+            memberIds: Array.from(new Set([...(data.group.memberIds || []), currentMemberId])),
+          };
 
           setGroups((prev) => {
             const idx = prev.findIndex(
@@ -712,6 +736,13 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     const found = groups.find((g) => g.code?.toUpperCase() === clean);
     if (found) {
       setCurrentGroupId(found.id);
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === found.id
+            ? { ...g, memberIds: Array.from(new Set([...(g.memberIds || []), currentMemberId])) }
+            : g
+        )
+      );
 
       if (!members.some((m) => m.id === currentMemberId && m.status === "active")) {
         setMembers((prev) =>
@@ -1314,7 +1345,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         optimizedSettlementList,
         unreadNotificationCount,
         setCurrentMemberId,
-        groups,
+        groups: userGroups,
+        hasGroup,
         switchGroup,
         joinGroupByCode,
         joinModalOpen,

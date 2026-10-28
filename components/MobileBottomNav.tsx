@@ -56,13 +56,13 @@ export function MobileBottomNav() {
 
   return (
     <nav className="mobile-bottom-nav" aria-label="แถบเมนูหลักบนมือถือ">
-      {/* 1. ภาพรวม */}
+      {/* 1. หน้าหลัก */}
       <Link
         href="/"
         className={`mobile-nav-item ${pathname === "/" ? "active" : ""}`}
       >
-        <span className="mobile-nav-icon">📊</span>
-        <span className="mobile-nav-label">ภาพรวม</span>
+        <span className="mobile-nav-icon">🏠</span>
+        <span className="mobile-nav-label">หน้าหลัก</span>
       </Link>
 
       {/* 2. รายการรายจ่าย */}

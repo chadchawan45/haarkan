@@ -15,7 +15,6 @@ import { Navbar } from "@/components/Navbar";
 import { LandingPage } from "@/components/LandingPage";
 import { PaymentModal } from "@/components/PaymentModal";
 import { ProofModal } from "@/components/ProofModal";
-import { startOfWeek, endOfWeek } from "@/lib/periods";
 
 function DashboardContent() {
   const router = useRouter();
@@ -100,14 +99,6 @@ function DashboardContent() {
   );
   const activeExpenses = currentGroupExpenses.filter((e) => e.status === "active");
 
-  const now = new Date();
-  const weekStart = startOfWeek(now, group.weekStartsOn).toISOString().slice(0, 10);
-  const weekEnd = endOfWeek(now, group.weekStartsOn).toISOString().slice(0, 10);
-
-  const thisWeekTotalSatang = activeExpenses
-    .filter((e) => e.expenseDate >= weekStart && e.expenseDate <= weekEnd)
-    .reduce((sum, e) => sum + e.totalAmountSatang, 0);
-
   // รายการรอตรวจสลิปเฉพาะกลุ่มปัจจุบัน
   const pendingReviewPayments = payments.filter(
     (p) =>
@@ -168,32 +159,7 @@ function DashboardContent() {
         </div>
       </section>
 
-      {/* แถบเลือกสลับกลุ่ม (Group Switcher Bar) */}
-      <section style={{ marginBottom: "20px" }}>
-        <div className="group-switcher-bar">
-          <span className="group-switcher-label">
-            👥 กลุ่มของคุณ ({groups.length}):
-          </span>
 
-          <div className="group-switcher-scroll">
-            {groups.map((g) => {
-              const isActive = g.id === group.id;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => switchGroup(g.id)}
-                  className={`group-pill ${isActive ? "active" : ""}`}
-                >
-                  <span>{isActive ? "✓" : "📁"}</span>
-                  <strong>{g.name}</strong>
-                  <span className="group-pill-code">({g.code})</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
 
       {/* กล่องไฮไลต์โหมดทดลองใช้งาน (Demo Callout) */}
       {isDemo && (
@@ -255,18 +221,85 @@ function DashboardContent() {
         </section>
       )}
 
-      {/* คอนเทนเนอร์กลุ่มปัจจุบัน: ภาพรวมสถิติและรายจ่ายทั้งหมดจัดวางอยู่ภายในกลุ่มนี้ */}
-      <section
-        className="card"
-        style={{
-          padding: 0,
-          overflow: "hidden",
-          borderRadius: "18px",
-          border: "1px solid rgba(31, 111, 83, 0.25)",
-          marginBottom: "36px",
-          boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
-        }}
-      >
+      {/* กรณีผู้ใช้ยังไม่มีกลุ่ม (เช่น เพิ่งสมัครสมาชิกใหม่) */}
+      {groups.length === 0 ? (
+        <section
+          className="card"
+          style={{
+            padding: "50px 24px",
+            textAlign: "center",
+            borderRadius: "18px",
+            background: "var(--card-bg, #ffffff)",
+            border: "1px solid var(--border, #eef0ed)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.04)",
+            marginBottom: "36px",
+          }}
+        >
+          <div style={{ fontSize: "52px", marginBottom: "14px" }}>✨</div>
+          <h2 style={{ fontSize: "22px", fontWeight: 700, margin: "0 0 10px" }}>
+            ยินดีต้อนรับสู่ หารกัน!
+          </h2>
+          <p
+            style={{
+              color: "var(--text-muted, #6a766e)",
+              fontSize: "14px",
+              maxWidth: "460px",
+              margin: "0 auto 24px",
+              lineHeight: 1.6,
+            }}
+          >
+            คุณยังไม่มีกลุ่มในขณะนี้ สามารถเริ่มต้นใช้งานได้ง่ายๆ โดยการสร้างกลุ่มใหม่ หรือใส่รหัส 6 หลักเพื่อเข้าร่วมกลุ่มของเพื่อน
+          </p>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              gap: "12px",
+              flexWrap: "wrap",
+            }}
+          >
+            <Link
+              href="/groups/new"
+              className="primary"
+              style={{
+                padding: "12px 22px",
+                fontSize: "14px",
+                fontWeight: 700,
+                borderRadius: "12px",
+                textDecoration: "none",
+              }}
+            >
+              ＋ สร้างกลุ่มใหม่
+            </Link>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setJoinModalOpen(true)}
+              style={{
+                padding: "12px 22px",
+                fontSize: "14px",
+                fontWeight: 600,
+                borderRadius: "12px",
+                cursor: "pointer",
+              }}
+            >
+              🔑 เข้าร่วมกลุ่มด้วยรหัส
+            </button>
+          </div>
+        </section>
+      ) : (
+        /* คอนเทนเนอร์กลุ่มปัจจุบัน: สรุปสถานะการเงินจัดวางอยู่ภายในกลุ่มนี้ */
+        <section
+          className="card"
+          style={{
+            padding: 0,
+            overflow: "hidden",
+            borderRadius: "18px",
+            border: "1px solid rgba(31, 111, 83, 0.25)",
+            marginBottom: "36px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.05)",
+          }}
+        >
         {/* แบนเนอร์หัวกลุ่ม (Group Hero Header) */}
         <div
           className="group-hero-header"
@@ -291,16 +324,49 @@ function DashboardContent() {
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "6px",
-                  background: "rgba(255,255,255,0.2)",
-                  padding: "3px 10px",
-                  borderRadius: "99px",
-                  fontSize: "11px",
-                  fontWeight: 600,
+                  gap: "10px",
                   marginBottom: "8px",
+                  flexWrap: "wrap",
                 }}
               >
-                <span>👥 กลุ่มที่กำลังเปิดใช้งาน</span>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    background: "rgba(255,255,255,0.2)",
+                    padding: "3px 10px",
+                    borderRadius: "99px",
+                    fontSize: "11px",
+                    fontWeight: 600,
+                  }}
+                >
+                  <span>👥 กลุ่มที่กำลังเปิดใช้งาน</span>
+                </div>
+                {groups.length > 1 && (
+                  <select
+                    value={group.id}
+                    onChange={(e) => switchGroup(e.target.value)}
+                    style={{
+                      background: "rgba(0, 0, 0, 0.35)",
+                      color: "#fff",
+                      border: "1px solid rgba(255, 255, 255, 0.4)",
+                      borderRadius: "6px",
+                      padding: "2px 8px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      outline: "none",
+                    }}
+                    title="สลับไปยังกลุ่มอื่นของคุณ"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id} style={{ color: "#111" }}>
+                        สลับกลุ่ม: {g.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <h2
@@ -445,7 +511,7 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* ส่วนเนื้อหาภายในกลุ่ม: ภาพรวมและสถิติ 4 ช่อง */}
+        {/* ส่วนเนื้อหาภายในกลุ่ม: สรุปยอดเงินแบบเรียบง่าย */}
         <div className="group-body-content" style={{ padding: "24px" }}>
           <div
             style={{
@@ -460,22 +526,19 @@ function DashboardContent() {
             <h3
               style={{
                 margin: 0,
-                fontSize: "17px",
+                fontSize: "16px",
                 fontWeight: 700,
                 display: "flex",
                 alignItems: "center",
                 gap: "8px",
               }}
             >
-              <span>📊</span> ภาพรวมค่าใช้จ่ายของกลุ่ม &ldquo;{group.name}&rdquo;
+              <span>💳</span> สรุปสถานะการเงินของคุณในกลุ่ม &ldquo;{group.name}&rdquo;
             </h3>
-            <span style={{ fontSize: "12px", color: "var(--text-muted, #6a766e)" }}>
-              เริ่มสัปดาห์: {group.weekStartsOn === 1 ? "วันจันทร์" : "วันอาทิตย์"}
-            </span>
           </div>
 
-          {/* สรุปสถิติ 4 ช่อง ภายในกลุ่ม */}
-          <div className="stats-grid-dashboard">
+          {/* สรุปสถิติ 3 ช่องแบบเรียบง่ายและเป็นระเบียบ */}
+          <div className="stats-grid-dashboard" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
             <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">ยอดที่คุณต้องชำระ</div>
@@ -502,15 +565,6 @@ function DashboardContent() {
               </div>
             </Link>
 
-            <Link href="/expenses" className="card card-clickable" style={{ margin: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div className="stat-label">รายจ่ายสัปดาห์นี้ของกลุ่ม</div>
-                <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูรายจ่าย →</span>
-              </div>
-              <div className="stat-value">{formatTHB(thisWeekTotalSatang)}</div>
-              <div className="sub">ยอดรวมสัปดาห์นี้</div>
-            </Link>
-
             <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">รอตรวจสอบสลิป</div>
@@ -532,7 +586,7 @@ function DashboardContent() {
 
           {/* รายการรอตรวจสลิป (ถ้ามี) */}
           {pendingReviewPayments.length > 0 && (
-            <div className="card" style={{ borderLeft: "4px solid #d97706", marginBottom: "20px" }}>
+            <div className="card" style={{ borderLeft: "4px solid #d97706", marginTop: "20px", marginBottom: 0 }}>
               <div className="section-title">
                 <span style={{ color: "#d97706" }}>
                   🔔 สลิปที่รอให้คุณตรวจสอบ ({pendingReviewPayments.length})
@@ -571,96 +625,9 @@ function DashboardContent() {
               })}
             </div>
           )}
-
-          {/* รายจ่ายล่าสุดของกลุ่มนี้ (รายจ่ายล่าสุดแสดงเต็มแถว สะอาดตา ไม่รก) */}
-          <div className="card" style={{ margin: 0 }}>
-            <div className="section-title">
-              <span style={{ fontSize: "16px", fontWeight: 700 }}>🛒 รายจ่ายล่าสุดของกลุ่ม</span>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <Link href="/expenses" className="link" style={{ fontSize: "13px" }}>
-                  ดูรายจ่ายทั้งหมด ({currentGroupExpenses.length}) →
-                </Link>
-              </div>
-            </div>
-
-            {currentGroupExpenses.length === 0 ? (
-              <div className="empty-state" style={{ padding: "36px 12px", textAlign: "center" }}>
-                <div style={{ fontSize: "40px", marginBottom: "8px" }}>📝</div>
-                <div
-                  style={{
-                    fontWeight: 700,
-                    color: "var(--text-main, #334155)",
-                    fontSize: "16px",
-                    marginBottom: "4px",
-                  }}
-                >
-                  ยังไม่มีรายการรายจ่ายในกลุ่มนี้
-                </div>
-                <p style={{ fontSize: "13px", color: "var(--text-muted, #6a766e)", margin: "0 0 16px" }}>
-                  กดปุ่มด้านล่างเพื่อเริ่มหารค่าใช้จ่ายกับเพื่อน ๆ ในกลุ่ม
-                </p>
-                <Link
-                  href="/expenses/new"
-                  className="primary"
-                  style={{
-                    display: "inline-flex",
-                    padding: "8px 18px",
-                    borderRadius: "10px",
-                    textDecoration: "none",
-                    fontWeight: 600,
-                  }}
-                >
-                  ＋ เพิ่มรายจ่ายแรก
-                </Link>
-              </div>
-            ) : (
-              currentGroupExpenses.slice(0, 5).map((e) => {
-                const myShare =
-                  e.shares.find((s) => s.memberId === currentMemberId)?.amountSatang ?? 0;
-                const payerNames = e.payers
-                  .map((p) => members.find((m) => m.id === p.memberId)?.name ?? "สมาชิก")
-                  .join(", ");
-
-                return (
-                  <div className="expense" key={e.id}>
-                    <div className="icon">
-                      {e.categoryName === "อาหาร"
-                        ? "🍜"
-                        : e.categoryName === "น้ำดื่ม"
-                        ? "💧"
-                        : e.categoryName === "ของใช้ส่วนกลาง"
-                        ? "🛒"
-                        : "🧾"}
-                    </div>
-                    <div>
-                      <div
-                        className="expense-name"
-                        style={{ textDecoration: e.status === "voided" ? "line-through" : "none" }}
-                      >
-                        {e.title}{" "}
-                        {e.status === "voided" && (
-                          <span className="badge badge-voided">ยกเลิกแล้ว</span>
-                        )}
-                      </div>
-                      <div className="expense-meta">
-                        {e.categoryName} · {e.expenseDate} · จ่ายโดย {payerNames}
-                      </div>
-                    </div>
-                    <div className="amount">
-                      {formatTHB(e.totalAmountSatang)}
-                      {e.status === "active" && (
-                        <small style={{ color: myShare > 0 ? "#cf4f36" : "#6a766e" }}>
-                          ส่วนของคุณ {formatTHB(myShare)}
-                        </small>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
         </div>
       </section>
+      )}
 
       {/* Modals */}
       <PaymentModal

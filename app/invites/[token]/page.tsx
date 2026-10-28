@@ -217,7 +217,7 @@ export default function AcceptInvitePage() {
               ยินดีต้อนรับเข้าสู่กลุ่ม {targetGroup?.name}!
             </h3>
             <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", margin: 0 }}>
-              กำลังนำคุณเข้าสู่หน้าภาพรวมของกลุ่ม...
+              กำลังนำคุณเข้าสู่หน้าหลักของกลุ่ม...
             </p>
           </div>
         )}
@@ -262,7 +262,7 @@ export default function AcceptInvitePage() {
                     cursor: "pointer",
                   }}
                 >
-                  ➔ ไปยังหน้าภาพรวมกลุ่ม (Dashboard)
+                  ➔ ไปยังหน้าหลักกลุ่ม (Dashboard)
                 </button>
               </div>
             ) : (

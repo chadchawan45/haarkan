@@ -31,19 +31,19 @@ export function Navbar() {
   const navItems = isAuthenticated
     ? isDemo
       ? [
-          { label: "ภาพรวม", href: "/" },
+          { label: "หน้าหลัก", href: "/" },
           { label: "รายจ่าย (เปิดใช้)", href: "/expenses" },
           { label: "🔒 เคลียร์เงิน", href: "/balances" },
           ...(isGroupCreator ? [{ label: "🔒 ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
       : [
-          { label: "ภาพรวม", href: "/" },
+          { label: "หน้าหลัก", href: "/" },
           { label: "รายจ่าย", href: "/expenses" },
           { label: "เคลียร์เงิน & ชำระหนี้", href: "/balances" },
           ...(isGroupCreator ? [{ label: "⚙️ ตั้งค่ากลุ่ม", href: "/settings" }] : []),
         ]
     : [
-        { label: "หน้าแรก", href: "/" },
+        { label: "หน้าหลัก", href: "/" },
         { label: "จุดเด่น & ฟังก์ชัน", href: "/#features" },
         { label: "วิธีใช้งาน", href: "/#how-it-works" },
         { label: "ทดลองคำนวณ", href: "/#try-calculator" },
