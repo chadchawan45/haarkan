@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo, useRef } from "react";
 import { formatTHB, parseTHB, equalSplit, customSplit, weightedSplit } from "@/lib/money";
 import { balances, directSettlements, optimizedSettlements, type Settlement } from "@/lib/settlements";
 import { startOfWeek, endOfWeek } from "@/lib/periods";
@@ -273,6 +273,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [currentMemberId, setCurrentMemberId] = useState<string>("mem-golf");
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isDemo, setIsDemo] = useState<boolean>(false);
+  const deletedGroupIdsRef = useRef<Set<string>>(new Set());
 
   // กรองเฉพาะกลุ่มที่ผู้ใช้คนปัจจุบันเป็นผู้สร้าง หรือเป็นสมาชิกในกลุ่ม
   const userGroups = useMemo(() => {
@@ -406,10 +407,17 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         .then((data) => {
           if (!data?.success) return;
 
-          if (Array.isArray(data.groups) && data.groups.length > 0) {
+          if (Array.isArray(data.groups)) {
+            const activeServerGroups = data.groups.filter(
+              (g: any) => !deletedGroupIdsRef.current.has(g.id)
+            );
             setGroups((prev) => {
-              const map = new Map(prev.map((g) => [g.id, g]));
-              for (const g of data.groups) {
+              const activePrev = prev.filter((g) => !deletedGroupIdsRef.current.has(g.id));
+              if (activePrev.length === 0 && activeServerGroups.length === 0) {
+                return [];
+              }
+              const map = new Map(activePrev.map((g) => [g.id, g]));
+              for (const g of activeServerGroups) {
                 if (map.has(g.id)) {
                   map.set(g.id, { ...map.get(g.id)!, ...g });
                 } else {
@@ -491,14 +499,13 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     }
   }, [groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo]);
 
-  // ซิงค์ข้อมูลกลุ่ม ค่าใช้จ่าย และสมาชิกไปยังเซิร์ฟเวอร์แบบ Debounce เพื่อให้รหัสกลุ่มใช้งานได้จริงข้ามบัญชี/ข้ามเครื่อง
   useEffect(() => {
     const timer = setTimeout(() => {
       fetch("/api/groups/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          groups,
+          groups: groups.filter((g) => !deletedGroupIdsRef.current.has(g.id)),
           expenses,
           payments,
           members: members.map(({ password: _, ...rest }) => rest),
@@ -798,22 +805,44 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return { success: false, message: "โหมดทดลองใช้งานไม่สามารถลบกลุ่มได้" };
     }
 
-    if (groups.length <= 1) {
-      return { success: false, message: "ไม่สามารถลบได้ ต้องมีกลุ่มอย่างน้อย 1 กลุ่มในระบบ" };
-    }
-
     const targetGroup = groups.find((g) => g.id === groupId);
     if (!targetGroup) {
       return { success: false, message: "ไม่พบกลุ่มที่ต้องการลบ" };
     }
+
+    deletedGroupIdsRef.current.add(groupId);
 
     const remainingGroups = groups.filter((g) => g.id !== groupId);
     setGroups(remainingGroups);
 
     // หากกลุ่มที่ลบคือกลุ่มที่กำลังเปิดใช้งานอยู่ ให้สลับไปกลุ่มแรกที่เหลือ
     if (currentGroupId === groupId) {
-      setCurrentGroupId(remainingGroups[0].id);
+      const remainingUserGroups = userGroups.filter((g) => g.id !== groupId);
+      if (remainingUserGroups.length > 0) {
+        setCurrentGroupId(remainingUserGroups[0].id);
+      } else if (remainingGroups.length > 0) {
+        setCurrentGroupId(remainingGroups[0].id);
+      } else {
+        setCurrentGroupId("");
+      }
     }
+
+    // ล้างรายจ่ายและประวัติการชำระเงินของกลุ่มนี้ออกจาก client
+    setExpenses((prev) => prev.filter((e) => e.groupId !== groupId));
+    setPayments((prev) => prev.filter((p) => p.groupId !== groupId));
+
+    // ส่งคำขอลบไปยังเซิร์ฟเวอร์ทันที
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        deletedGroupId: groupId,
+        groups: remainingGroups,
+      }),
+    }).catch(() => {});
+
+    // เรียก Supabase DELETE endpoint เผื่อต่อกับ database
+    fetch(`/api/groups/${groupId}`, { method: "DELETE" }).catch(() => {});
 
     setNotifications((prev) => [
       {

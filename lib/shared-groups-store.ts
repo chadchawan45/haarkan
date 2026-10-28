@@ -181,9 +181,17 @@ export function syncClientData(payload: {
   payments?: any[];
   members?: any[];
   deletedMemberId?: string;
+  deletedGroupId?: string;
   groupId?: string;
 }): StoreData {
   const store = readStore();
+
+  // จัดการการลบกลุ่มออกจาก store
+  if (payload.deletedGroupId) {
+    store.groups = (store.groups || []).filter((g) => g.id !== payload.deletedGroupId);
+    store.expenses = (store.expenses || []).filter((e: any) => e.groupId !== payload.deletedGroupId);
+    store.payments = (store.payments || []).filter((p: any) => p.groupId !== payload.deletedGroupId);
+  }
 
   // จัดการการลบสมาชิกออกจากกลุ่มและ store
   if (payload.deletedMemberId) {
@@ -203,6 +211,7 @@ export function syncClientData(payload: {
 
   if (payload.groups && Array.isArray(payload.groups)) {
     for (const g of payload.groups) {
+      if (payload.deletedGroupId && g.id === payload.deletedGroupId) continue;
       const idx = store.groups.findIndex((existing) => existing.id === g.id || (existing.code && existing.code.toUpperCase() === g.code?.toUpperCase()));
       if (idx >= 0) {
         store.groups[idx] = { ...store.groups[idx], ...g };

@@ -2,10 +2,12 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useGroup, Role } from "@/lib/group-context";
 import { Navbar } from "@/components/Navbar";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const {
     group,
     members,
@@ -19,6 +21,7 @@ export default function SettingsPage() {
     removeMember,
     clearDummyMembers,
     resetToDefaultData,
+    deleteGroup,
     isDemo,
     triggerDemoLock,
   } = useGroup();
@@ -41,6 +44,7 @@ export default function SettingsPage() {
   const [lineStatus, setLineStatus] = useState<string | null>(null);
 
   const [savedNotice, setSavedNotice] = useState("");
+  const [deleteGroupModalOpen, setDeleteGroupModalOpen] = useState(false);
 
   // ถ้าไม่ใช่ผู้สร้างกลุ่ม แสดงหน้าแจ้งเตือนและปฏิเสธการเข้าถึง
   if (!isGroupCreator) {
@@ -560,8 +564,101 @@ export default function SettingsPage() {
               🔄 รีเซ็ตข้อมูลกลุ่มเป็นค่าเริ่มต้น (0 บาท)
             </button>
           </div>
+
+          {/* ลบกลุ่มนี้อย่างถาวร */}
+          <div className="card" style={{ border: "1px solid rgba(239, 68, 68, 0.35)", background: "rgba(239, 68, 68, 0.04)" }}>
+            <div className="section-title">
+              <span style={{ color: "var(--danger, #ef4444)", fontWeight: 700 }}>ลบกลุ่มนี้อย่างถาวร</span>
+            </div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 14px", lineHeight: 1.5 }}>
+              ลบกลุ่ม &quot;{group.name}&quot; ออกจากระบบอย่างถาวร ข้อมูลรายจ่าย ประวัติการชำระเงิน และสมาชิกในกลุ่มนี้จะถูกลบทั้งหมดและไม่สามารถกู้คืนได้
+            </p>
+            <button
+              type="button"
+              className="danger-btn"
+              onClick={() => {
+                if (isDemo) {
+                  triggerDemoLock("การลบกลุ่ม");
+                  return;
+                }
+                setDeleteGroupModalOpen(true);
+              }}
+              style={{
+                background: "var(--danger, #ef4444)",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "10px",
+                padding: "10px 16px",
+                fontSize: "13px",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                cursor: "pointer",
+              }}
+            >
+              🗑️ ลบกลุ่มนี้
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Modal ยืนยันการลบกลุ่ม */}
+      {deleteGroupModalOpen && (
+        <div className="modal-overlay" onClick={() => setDeleteGroupModalOpen(false)}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "460px", padding: "24px" }}
+          >
+            <div style={{ textAlign: "center", marginBottom: "16px" }}>
+              <div style={{ fontSize: "44px", marginBottom: "12px" }}>⚠️</div>
+              <h3 style={{ margin: "0 0 8px", fontSize: "18px", color: "var(--danger, #ef4444)" }}>
+                ยืนยันการลบกลุ่ม &quot;{group.name}&quot;?
+              </h3>
+              <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                การดำเนินการนี้ไม่สามารถยกเลิกได้ รายการรายจ่าย สลิป และข้อมูลทั้งหมดในกลุ่มนี้จะถูกลบออกจากระบบอย่างถาวร
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", marginTop: "24px" }}>
+              <button
+                type="button"
+                className="secondary"
+                style={{ flex: 1, padding: "10px", fontSize: "13px" }}
+                onClick={() => setDeleteGroupModalOpen(false)}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                className="danger-btn"
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  fontSize: "13px",
+                  background: "var(--danger, #ef4444)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "10px",
+                  fontWeight: 700,
+                }}
+                onClick={() => {
+                  const res = deleteGroup(group.id);
+                  if (res.success) {
+                    setDeleteGroupModalOpen(false);
+                    router.push("/");
+                  } else {
+                    alert(res.message);
+                  }
+                }}
+              >
+                ยืนยันลบกลุ่ม
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

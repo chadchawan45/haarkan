@@ -51,10 +51,6 @@ function DashboardContent() {
       triggerDemoLock("การลบกลุ่ม");
       return;
     }
-    if (groups.length <= 1) {
-      alert("⚠️ ไม่สามารถลบได้ เนื่องจากระบบต้องมีกลุ่มอย่างน้อย 1 กลุ่ม");
-      return;
-    }
     setDeleteError(null);
     setRoomToDelete(targetGroup);
   };
