@@ -67,15 +67,13 @@ export default function ExpensesListPage() {
           <h1>รายการรายจ่ายทั้งหมด</h1>
         </div>
 
-        {(isAdmin || isDemo) && (
-          <Link
-            href="/expenses/new"
-            className="primary"
-            style={isDemo ? { boxShadow: "0 4px 14px rgba(31, 111, 83, 0.3)", fontWeight: 700 } : undefined}
-          >
-            {isDemo ? "⚡ ＋ เพิ่มรายจ่ายใหม่ (เปิดใช้)" : "＋ เพิ่มรายจ่ายใหม่"}
-          </Link>
-        )}
+        <Link
+          href="/expenses/new"
+          className="primary"
+          style={{ fontWeight: 700 }}
+        >
+          ＋ เพิ่มรายจ่ายใหม่
+        </Link>
       </section>
 
       {/* Filter Toolbar */}
@@ -212,7 +210,7 @@ export default function ExpensesListPage() {
                       </div>
                     )}
 
-                    {isAdmin && exp.status === "active" && (
+                    {(isAdmin || exp.createdByMemberId === currentMemberId) && exp.status === "active" && (
                       <button
                         className="danger-btn"
                         style={{
@@ -224,7 +222,7 @@ export default function ExpensesListPage() {
                         }
                         title={isDemo ? "ฟังก์ชันนี้ถูกล็อกในโหมด Demo" : undefined}
                       >
-                        {isDemo ? "🔒 ยกเลิกรายการ (ล็อกในเดโม)" : "✕ ยกเลิกรายการ (Admin)"}
+                        {isDemo ? "🔒 ยกเลิกรายการ (ล็อกในเดโม)" : "✕ ยกเลิกรายการ"}
                       </button>
                     )}
                   </div>

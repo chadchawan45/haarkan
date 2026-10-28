@@ -9,6 +9,11 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const { isAuthenticated, isDemo, currentMember, triggerDemoLock, demoLogin } = useGroup();
 
+  // ไม่แสดง mobile bottom navigation ในหน้า admin portal
+  if (pathname?.startsWith("/admin")) {
+    return null;
+  }
+
   if (!isAuthenticated) {
     return (
       <nav className="mobile-bottom-nav" aria-label="แถบเมนูด้านล่างบนมือถือ">

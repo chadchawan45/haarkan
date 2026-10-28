@@ -5,6 +5,78 @@ import { useGroup, Member } from "@/lib/group-context";
 import { formatTHB, parseTHB } from "@/lib/money";
 import { generatePromptPayDataUrl } from "@/lib/promptpay";
 
+// Helper ย่อขนาดรูปสลิปก่อนบันทึกลง localStorage เพื่อป้องกัน QuotaExceededError
+async function compressImageFile(
+  file: File,
+  maxWidth = 1200,
+  maxHeight = 1200,
+  quality = 0.75
+): Promise<{ dataUrl: string; sizeKb: number }> {
+  if (!file.type.startsWith("image/")) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () =>
+        resolve({
+          dataUrl: reader.result as string,
+          sizeKb: Math.round(file.size / 1024),
+        });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          const rawUrl = e.target?.result as string;
+          resolve({
+            dataUrl: rawUrl,
+            sizeKb: Math.round((rawUrl.length * 0.75) / 1024),
+          });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+        const sizeKb = Math.round((compressedDataUrl.length * 0.75) / 1024);
+        resolve({ dataUrl: compressedDataUrl, sizeKb });
+      };
+      img.onerror = () => {
+        const rawUrl = e.target?.result as string;
+        resolve({
+          dataUrl: rawUrl,
+          sizeKb: Math.round((rawUrl.length * 0.75) / 1024),
+        });
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.onerror = () => {
+      resolve({ dataUrl: "", sizeKb: 0 });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -24,6 +96,7 @@ export function PaymentModal({
     members,
     currentMemberId,
     currentMember,
+    payments,
     createPayment,
     uploadProofAndSubmit,
     optimizedSettlementList,
@@ -40,6 +113,8 @@ export function PaymentModal({
   );
   const [slipUrl, setSlipUrl] = useState<string>("");
   const [slipName, setSlipName] = useState<string>("");
+  const [slipSizeKb, setSlipSizeKb] = useState<number>(0);
+  const [isCompressingSlip, setIsCompressingSlip] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedText, setCopiedText] = useState("");
 
@@ -75,6 +150,8 @@ export function PaymentModal({
 
       setSlipUrl("");
       setSlipName("");
+      setSlipSizeKb(0);
+      setIsCompressingSlip(false);
       setCopiedText("");
     }
   }, [isOpen, defaultRecipientId, defaultAmountSatang, currentMemberId, settlementMode]);
@@ -82,6 +159,14 @@ export function PaymentModal({
   const satang = parseTHB(bahtInput) ?? 0;
   const recipient = members.find((m) => m.id === toMemberId);
   const activePromptpay = recipient?.promptpayNumber || customPromptpay.trim();
+
+  // ตรวจสอบว่ามีรายการแจ้งโอนที่กำลังรอตรวจสอบอยู่ให้ผู้รับคนนี้หรือไม่
+  const pendingPaymentToRecipient = payments.find(
+    (p) =>
+      p.fromMemberId === currentMemberId &&
+      p.toMemberId === toMemberId &&
+      p.status === "submitted"
+  );
 
   // สร้าง QR Code พร้อมเพย์ตามจำนวนเงินแบบ Real-time
   useEffect(() => {
@@ -135,15 +220,20 @@ export function PaymentModal({
     }
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSlipName(file.name);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setSlipUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsCompressingSlip(true);
+      try {
+        const result = await compressImageFile(file);
+        setSlipUrl(result.dataUrl);
+        setSlipSizeKb(result.sizeKb);
+      } catch (err) {
+        console.error("Failed to compress slip:", err);
+      } finally {
+        setIsCompressingSlip(false);
+      }
     }
   };
 
@@ -154,7 +244,7 @@ export function PaymentModal({
       onClose();
       return;
     }
-    if (!toMemberId || satang <= 0) return;
+    if (!toMemberId || satang <= 0 || isCompressingSlip) return;
 
     setIsSubmitting(true);
     const paymentId = createPayment(currentMemberId, toMemberId, satang, settlementMode);
@@ -206,6 +296,33 @@ export function PaymentModal({
             }}
           >
             🔒 <strong>โหมดทดลองใช้งาน (Demo Mode):</strong> ฟังก์ชันแจ้งชำระเงินถูกล็อกไว้ (เปิดให้ทดลองเฉพาะ &quot;＋ เพิ่มรายจ่าย&quot; เท่านั้น)
+          </div>
+        )}
+
+        {pendingPaymentToRecipient && (
+          <div
+            style={{
+              background: "rgba(245, 158, 11, 0.12)",
+              border: "1.5px solid #f59e0b",
+              color: "#92400e",
+              borderRadius: "12px",
+              padding: "12px 14px",
+              fontSize: "13px",
+              marginBottom: "16px",
+              lineHeight: 1.5,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700 }}>
+              <span>⚠️</span>
+              <span>คุณมียอดแจ้งโอนให้ {recipientDisplayName} ที่รอตรวจสอบอยู่</span>
+            </div>
+            <div style={{ marginTop: "4px" }}>
+              ยอด <strong>{formatTHB(pendingPaymentToRecipient.amountSatang)}</strong> (ส่งเมื่อ{" "}
+              {new Date(pendingPaymentToRecipient.createdAt).toLocaleDateString("th-TH")})
+            </div>
+            <div style={{ fontSize: "11px", color: "#b45309", marginTop: "4px" }}>
+              💡 หากเพิ่งโอนไป กรุณารอเพื่อนกด &ldquo;ยืนยันสลิป&rdquo; ก่อนส่งซ้ำ เพื่อป้องกันการหักหนี้ซ้ำซ้อน
+            </div>
           </div>
         )}
 
@@ -568,11 +685,19 @@ export function PaymentModal({
 
           {/* แนบสลิปการโอนเงิน */}
           <div className="field" style={{ marginTop: "14px" }}>
-            <span>แนบสลิปการโอนเงิน (JPG, PNG ไม่เกิน 10MB)</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>แนบสลิปการโอนเงิน (JPG, PNG)</span>
+              {isCompressingSlip && (
+                <span style={{ fontSize: "11px", color: "var(--primary)", fontWeight: 600 }}>
+                  ⏳ กำลังย่อขนาดรูปภาพ...
+                </span>
+              )}
+            </div>
             <input
               type="file"
               accept="image/jpeg,image/png,application/pdf"
               onChange={handleFileUpload}
+              disabled={isCompressingSlip}
               style={{ marginTop: "6px" }}
             />
           </div>
@@ -583,18 +708,34 @@ export function PaymentModal({
                 marginTop: "10px",
                 border: "1px solid var(--border)",
                 borderRadius: "10px",
-                padding: "8px",
+                padding: "10px",
                 textAlign: "center",
                 background: "var(--surface-input, rgba(125, 125, 125, 0.05))",
               }}
             >
-              <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 6px" }}>
-                สลิปที่เลือก: {slipName}
-              </p>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                <span style={{ fontSize: "12px", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "220px" }}>
+                  {slipName}
+                </span>
+                {slipSizeKb > 0 && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      background: "rgba(31, 111, 83, 0.12)",
+                      color: "var(--primary)",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    ⚡ ย่อขนาดรูปภาพเหลือ ~{slipSizeKb} KB
+                  </span>
+                )}
+              </div>
               <img
                 src={slipUrl}
                 alt="สลิป"
-                style={{ maxHeight: "140px", borderRadius: "8px", objectFit: "contain" }}
+                style={{ maxHeight: "150px", borderRadius: "8px", objectFit: "contain", margin: "0 auto", display: "block" }}
               />
             </div>
           )}
@@ -602,7 +743,7 @@ export function PaymentModal({
           <button
             type="submit"
             className={isDemo ? "secondary full-btn" : "primary full-btn"}
-            disabled={!isDemo && (satang <= 0 || !toMemberId || isSubmitting)}
+            disabled={!isDemo && (satang <= 0 || !toMemberId || isSubmitting || isCompressingSlip)}
             style={{
               marginTop: "14px",
               ...(isDemo ? { borderColor: "var(--warning)", color: "var(--warning)", background: "var(--warning-light)" } : {}),
@@ -610,8 +751,10 @@ export function PaymentModal({
           >
             {isDemo
               ? "🔒 ล็อกในโหมดทดลอง (เปิดเฉพาะเพิ่มรายจ่าย)"
+              : isCompressingSlip
+              ? "กำลังประมวลผลรูป..."
               : slipUrl
-              ? "บันทึกและส่งสลิปให้ตรวจสอบ"
+              ? "✓ บันทึกและส่งสลิปให้ตรวจสอบ"
               : "บันทึกรายการ (ยังไม่แนบสลิป)"}
           </button>
         </form>

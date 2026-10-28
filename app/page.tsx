@@ -36,15 +36,46 @@ function DashboardContent() {
     isAuthenticated,
     myOwedSatang,
     myDueSatang,
+    optimizedSettlementList,
     isDemo,
     triggerDemoLock,
   } = useGroup();
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<GroupSettings | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
+
+  const handleShareGroup = async (targetGroup: GroupSettings) => {
+    const inviteUrl = `${window.location.origin}/invites/${targetGroup.code}`;
+    const shareData = {
+      title: `เข้าร่วมกลุ่ม "${targetGroup.name}" บน หารกัน`,
+      text: `มาหารค่าใช้จ่ายกลุ่ม "${targetGroup.name}" ด้วยกันบนเว็บ หารกัน! รหัสกลุ่ม: ${targetGroup.code}`,
+      url: inviteUrl,
+    };
+
+    if (
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function"
+    ) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(`${shareData.text}\n${inviteUrl}`);
+      setCopiedShareId(targetGroup.id);
+      setTimeout(() => setCopiedShareId(null), 2500);
+    } catch (err) {
+      console.error("Clipboard copy failed:", err);
+    }
+  };
 
   const handleOpenDeleteModal = (targetGroup: GroupSettings) => {
     if (isDemo) {
@@ -103,6 +134,10 @@ function DashboardContent() {
       p.status === "submitted" &&
       (p.toMemberId === currentMemberId || isAdmin)
   );
+
+  // หนี้ที่คุณต้องจ่ายและยอดที่คุณควรได้รับ (เฉพาะกลุ่มปัจจุบัน)
+  const myDebts = optimizedSettlementList.filter((s) => s.fromMemberId === currentMemberId);
+  const myCredits = optimizedSettlementList.filter((s) => s.toMemberId === currentMemberId);
 
   // หากยังไม่ได้ล็อกอิน ให้แสดงหน้า Landing Page แนะนำเว็บไซต์
   if (!isAuthenticated) {
@@ -480,6 +515,25 @@ function DashboardContent() {
                   >
                     {copiedLinkId === group.id ? "✓ คัดลอกลิงก์แล้ว" : "🔗 คัดลอกลิงก์"}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => handleShareGroup(group)}
+                    style={{
+                      background: "rgba(255,255,255,0.25)",
+                      border: "none",
+                      color: "#fff",
+                      borderRadius: "4px",
+                      padding: "2px 8px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                    title="แชร์กลุ่มไปยัง LINE, Messenger หรือแอปอื่นๆ"
+                  >
+                    {copiedShareId === group.id ? "✓ คัดลอกข้อความแชร์แล้ว" : "📤 แชร์ชวนเพื่อน"}
+                  </button>
                 </div>
 
                 <button
@@ -622,6 +676,200 @@ function DashboardContent() {
               </div>
             </Link>
           </div>
+
+          {/* รายการที่คุณต้องโอนเคลียร์เงิน (Actionable Settlements) */}
+          {myDebts.length > 0 && (
+            <div
+              className="card"
+              style={{
+                borderLeft: "4px solid #ef4444",
+                marginTop: "20px",
+                marginBottom: 0,
+                background: "var(--card-bg, #ffffff)",
+              }}
+            >
+              <div className="section-title">
+                <span style={{ color: "#ef4444", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>💸</span>
+                  <strong>ยอดที่คุณต้องโอนเงิน ({myDebts.length} รายการ)</strong>
+                </span>
+                <Link href="/balances" className="link">
+                  ดูแผนผังการเคลียร์หนี้ →
+                </Link>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "12px" }}>
+                {myDebts.map((debt, idx) => {
+                  const toM = members.find((m) => m.id === debt.toMemberId);
+                  const toName = toM?.nickname
+                    ? `${toM.nickname} (${toM.name})`
+                    : toM?.name || "เพื่อนในกลุ่ม";
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                        gap: "12px",
+                        padding: "12px 14px",
+                        background: "rgba(239, 68, 68, 0.04)",
+                        borderRadius: "12px",
+                        border: "1px solid rgba(239, 68, 68, 0.2)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <div
+                          style={{
+                            width: "38px",
+                            height: "38px",
+                            borderRadius: "10px",
+                            background: toM?.avatarColor || "#1f6f53",
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "14px",
+                            fontWeight: 700,
+                            overflow: "hidden",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {toM?.avatarUrl ? (
+                            <img
+                              src={toM.avatarUrl}
+                              alt={toName}
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            (toM?.nickname || toM?.name || "U").slice(0, 1)
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)" }}>
+                            โอนให้ {toName}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                            {toM?.promptpayNumber
+                              ? `พร้อมเพย์: ${toM.promptpayNumber}`
+                              : toM?.bankAccountNumber
+                              ? `${toM.bankName || "ธนาคาร"} ${toM.bankAccountNumber}`
+                              : "กดปุ่มเพื่อดูวิธีชำระ"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <span style={{ fontSize: "18px", fontWeight: 800, color: "#dc2626" }}>
+                          {formatTHB(debt.amountSatang)}
+                        </span>
+                        <button
+                          type="button"
+                          className="primary"
+                          style={{
+                            padding: "8px 14px",
+                            fontSize: "12px",
+                            borderRadius: "8px",
+                            fontWeight: 700,
+                            whiteSpace: "nowrap",
+                            boxShadow: "0 2px 8px rgba(31, 111, 83, 0.2)",
+                          }}
+                          onClick={() => {
+                            if (isDemo) {
+                              triggerDemoLock("การโอนเงินชำระหนี้");
+                              return;
+                            }
+                            setPaymentPreset({ toId: debt.toMemberId, amount: debt.amountSatang });
+                            setPaymentModalOpen(true);
+                          }}
+                        >
+                          💳 โอนเงินทันที
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* รายการที่เพื่อนติดค้างคุณ (เมื่อคุณไม่ต้องจ่ายใคร) */}
+          {myDebts.length === 0 && myCredits.length > 0 && (
+            <div
+              className="card"
+              style={{
+                borderLeft: "4px solid #1f6f53",
+                marginTop: "20px",
+                marginBottom: 0,
+                background: "var(--card-bg, #ffffff)",
+              }}
+            >
+              <div className="section-title">
+                <span style={{ color: "#1f6f53", display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>💰</span>
+                  <strong>สมาชิกที่ต้องโอนเงินคืนคุณ ({myCredits.length} คน)</strong>
+                </span>
+                <Link href="/balances" className="link">
+                  ดูยอดทั้งหมด →
+                </Link>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "10px" }}>
+                {myCredits.map((credit, idx) => {
+                  const fromM = members.find((m) => m.id === credit.fromMemberId);
+                  const fromName = fromM?.nickname
+                    ? `${fromM.nickname} (${fromM.name})`
+                    : fromM?.name || "เพื่อนในกลุ่ม";
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        padding: "10px 14px",
+                        background: "rgba(31, 111, 83, 0.04)",
+                        borderRadius: "10px",
+                        border: "1px solid rgba(31, 111, 83, 0.15)",
+                      }}
+                    >
+                      <div style={{ fontSize: "13px", color: "var(--text-main)" }}>
+                        รอ <strong>{fromName}</strong> โอนเงินคืน
+                      </div>
+                      <strong style={{ fontSize: "16px", color: "#1f6f53", fontWeight: 800 }}>
+                        +{formatTHB(credit.amountSatang)}
+                      </strong>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* สถานะบัญชีสมดุล ไม่มีหนี้ค้าง */}
+          {myDebts.length === 0 && myCredits.length === 0 && activeExpenses.length > 0 && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "14px 18px",
+                background: "rgba(31, 111, 83, 0.06)",
+                border: "1px dashed rgba(31, 111, 83, 0.3)",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                color: "#1f6f53",
+              }}
+            >
+              <span style={{ fontSize: "20px" }}>🎉</span>
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>
+                ยอดบัญชีของคุณสมดุลแล้ว ไม่มีหนี้ค้างชำระในกลุ่ม &ldquo;{group.name}&rdquo;
+              </span>
+            </div>
+          )}
 
           {/* รายการรอตรวจสลิป (ถ้ามี) */}
           {pendingReviewPayments.length > 0 && (

@@ -16,7 +16,7 @@ const CATEGORIES = [
 
 export default function NewExpensePage() {
   const router = useRouter();
-  const { members, activeMembers, currentMemberId, currentMember, isAdmin, isDemo, addExpense } = useGroup();
+  const { members, activeMembers, currentMemberId, currentMember, isAdmin, isAuthenticated, isDemo, addExpense } = useGroup();
 
   const [title, setTitle] = useState("");
   const [bahtInput, setBahtInput] = useState("");
@@ -113,7 +113,7 @@ export default function NewExpensePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin || !isFormValid) return;
+    if (!isFormValid) return;
 
     const category = CATEGORIES.find((c) => c.id === categoryId);
 
@@ -137,21 +137,26 @@ export default function NewExpensePage() {
     router.push("/expenses");
   };
 
-  if (!isAdmin && !isDemo) {
+  if (!isAuthenticated && !isDemo) {
     return (
       <main className="shell">
         <Navbar />
-        <div className="card" style={{ maxWidth: "600px", margin: "40px auto", textAlign: "center" }}>
-          <h2 style={{ color: "#d9483b" }}>🔒 จำกัดสิทธิ์เฉพาะผู้ดูแลกลุ่ม (Admin Only)</h2>
-          <p style={{ color: "#666", lineHeight: 1.6, margin: "14px 0 24px" }}>
-            ตามข้อกำหนดของระบบ เฉพาะผู้ดูแลกลุ่ม (Admin) เท่านั้นที่สามารถบันทึกรายจ่ายใหม่ของกลุ่มได้
-            บัญชีของคุณคือ <strong>{currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} (สมาชิกทั่วไป)</strong>
-            <br />
-            หากคุณต้องการบันทึกรายจ่าย กรุณาติดต่อผู้ดูแลกลุ่ม หรือเข้าสู่ระบบด้วยบัญชีผู้ดูแล
+        <div className="card" style={{ maxWidth: "540px", margin: "40px auto", textAlign: "center", padding: "36px 24px" }}>
+          <div style={{ fontSize: "40px", marginBottom: "12px" }}>🔑</div>
+          <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "0 0 10px", color: "var(--text-main)" }}>
+            กรุณาเข้าสู่ระบบก่อนบันทึกรายจ่าย
+          </h2>
+          <p style={{ color: "var(--text-muted)", fontSize: "14px", lineHeight: 1.6, margin: "0 0 24px" }}>
+            เพื่อความปลอดภัยและเชื่อมโยงค่าใช้จ่ายกับบัญชีของคุณและเพื่อนในกลุ่ม
           </p>
-          <Link href="/" className="primary">
-            ← กลับหน้าหลัก
-          </Link>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/login" className="primary" style={{ padding: "10px 20px" }}>
+              เข้าสู่ระบบ
+            </Link>
+            <Link href="/" className="secondary" style={{ padding: "10px 20px" }}>
+              ← กลับหน้าหลัก
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -481,11 +486,41 @@ export default function NewExpensePage() {
             );
           })}
 
+          {/* Quick Summary Card above submit */}
+          {totalSatang > 0 && selectedParticipants.length > 0 && !splitResult.error && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "14px 16px",
+                background: "rgba(31, 111, 83, 0.08)",
+                border: "1px solid rgba(31, 111, 83, 0.25)",
+                borderRadius: "12px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "8px",
+              }}
+            >
+              <div>
+                <span style={{ fontSize: "12px", color: "var(--text-muted)", display: "block" }}>
+                  สรุปการหาร ({selectedParticipants.length} คน)
+                </span>
+                <strong style={{ fontSize: "15px", color: "var(--primary)" }}>
+                  เฉลี่ยคนละ ~{formatTHB(Math.round(totalSatang / selectedParticipants.length))}
+                </strong>
+              </div>
+              <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--primary)" }}>
+                ยอดรวม {formatTHB(totalSatang)}
+              </span>
+            </div>
+          )}
+
           <button
             type="submit"
             className="primary full-btn"
             disabled={!isFormValid}
-            style={{ marginTop: "24px" }}
+            style={{ marginTop: "16px" }}
           >
             บันทึกรายจ่ายเข้าระบบ
           </button>
@@ -502,9 +537,28 @@ export default function NewExpensePage() {
             <div>
               {splitResult.rows.map((r) => {
                 const member = members.find((m) => m.id === r.memberId);
+                const baseShare = Math.floor(totalSatang / splitResult.rows.length);
+                const hasExtraPenny = mode === "equal" && r.amountSatang > baseShare;
                 return (
                   <div className="breakdown-row" key={r.memberId}>
-                    <span>{member?.name}</span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
+                      {member?.name}
+                      {hasExtraPenny && (
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            background: "rgba(31, 111, 83, 0.15)",
+                            color: "var(--primary)",
+                            padding: "1px 5px",
+                            borderRadius: "4px",
+                            fontWeight: 600,
+                          }}
+                          title="รับเศษสตางค์ส่วนเกินตามลำดับรายชื่อเพื่อให้ผลรวมลงตัว 100%"
+                        >
+                          +1 สต.
+                        </span>
+                      )}
+                    </span>
                     <strong style={{ color: "#1f6f53" }}>{formatTHB(r.amountSatang)}</strong>
                   </div>
                 );
