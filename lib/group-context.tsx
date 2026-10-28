@@ -430,11 +430,21 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
           if (Array.isArray(data.members) && data.members.length > 0) {
             setMembers((prev) => {
-              const map = new Map(prev.map((m) => [m.id, m]));
-              for (const m of data.members) {
-                map.set(m.id, { ...(map.get(m.id) || {}), ...m });
-              }
-              return Array.from(map.values());
+              const localMap = new Map(prev.map((m) => [m.id, m]));
+              return data.members.map((serverMem: any) => {
+                const localMem = localMap.get(serverMem.id);
+                if (localMem) {
+                  return {
+                    ...serverMem,
+                    ...localMem,
+                    bankName: localMem.bankName ?? serverMem.bankName,
+                    bankAccountNumber: localMem.bankAccountNumber ?? serverMem.bankAccountNumber,
+                    promptpayNumber: localMem.promptpayNumber ?? serverMem.promptpayNumber,
+                    qrCodeUrl: localMem.qrCodeUrl ?? serverMem.qrCodeUrl,
+                  };
+                }
+                return serverMem;
+              });
             });
           }
 
@@ -1344,26 +1354,35 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === memberId
-          ? {
-              ...m,
-              ...updates,
-              name: updates.name ? updates.name.trim() : m.name,
-              nickname: updates.nickname !== undefined ? updates.nickname.trim() : m.nickname,
-              avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : m.avatarUrl,
-              avatarColor: updates.avatarColor !== undefined ? updates.avatarColor : m.avatarColor,
-              email: updates.email !== undefined ? updates.email.trim() : m.email,
-              password: updates.password !== undefined ? updates.password : m.password,
-              bankName: updates.bankName !== undefined ? updates.bankName.trim() : m.bankName,
-              bankAccountNumber: updates.bankAccountNumber !== undefined ? updates.bankAccountNumber.trim() : m.bankAccountNumber,
-              promptpayNumber: updates.promptpayNumber !== undefined ? updates.promptpayNumber.trim() : m.promptpayNumber,
-              qrCodeUrl: updates.qrCodeUrl !== undefined ? updates.qrCodeUrl : m.qrCodeUrl,
-            }
-          : m
-      )
+    const updatedMembers = members.map((m) =>
+      m.id === memberId
+        ? {
+            ...m,
+            ...updates,
+            name: updates.name ? updates.name.trim() : m.name,
+            nickname: updates.nickname !== undefined ? updates.nickname.trim() : m.nickname,
+            avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : m.avatarUrl,
+            avatarColor: updates.avatarColor !== undefined ? updates.avatarColor : m.avatarColor,
+            email: updates.email !== undefined ? updates.email.trim() : m.email,
+            password: updates.password !== undefined ? updates.password : m.password,
+            bankName: updates.bankName !== undefined ? updates.bankName.trim() : m.bankName,
+            bankAccountNumber: updates.bankAccountNumber !== undefined ? updates.bankAccountNumber.trim() : m.bankAccountNumber,
+            promptpayNumber: updates.promptpayNumber !== undefined ? updates.promptpayNumber.trim() : m.promptpayNumber,
+            qrCodeUrl: updates.qrCodeUrl !== undefined ? updates.qrCodeUrl : m.qrCodeUrl,
+          }
+        : m
     );
+
+    setMembers(updatedMembers);
+
+    // ส่งข้อมูลโปรไฟล์และบัญชีธนาคารที่อัปเดตไปยังเซิร์ฟเวอร์ทันที
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        members: updatedMembers.map(({ password: _, ...rest }) => rest),
+      }),
+    }).catch(() => {});
   };
 
   const toggleMemberRole = (memberId: string) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useGroup } from "@/lib/group-context";
@@ -69,9 +69,12 @@ export default function ProfilePage() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
 
-  // ซิงค์ค่าฟอร์มเมื่อสลับผู้ใช้
+  // ซิงค์ค่าฟอร์มเฉพาะเมื่อโหลดหน้าครั้งแรก หรือเปลี่ยน ID ผู้ใช้ (ป้องกันการรีเซ็ตฟอร์มขณะเลือกธนาคารหรือพิมพ์)
+  const initializedMemberIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (currentMember) {
+    if (currentMember && initializedMemberIdRef.current !== currentMember.id) {
+      initializedMemberIdRef.current = currentMember.id;
       setName(currentMember.name || "");
       setNickname(currentMember.nickname || "");
       setEmail(currentMember.email || "");
@@ -190,7 +193,7 @@ export default function ProfilePage() {
 
     setNewPassword("");
     setConfirmPassword("");
-    setNotice("✓ บันทึกข้อมูลและรูปโปรไฟล์เรียบร้อยแล้ว");
+    setNotice("✓ บันทึกข้อมูลและบัญชีธนาคารเรียบร้อยแล้ว");
     setTimeout(() => setNotice(""), 3500);
   };
 

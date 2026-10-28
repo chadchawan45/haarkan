@@ -254,6 +254,16 @@ export function syncClientData(payload: {
       } else {
         store.members.push(mem);
       }
+
+      // ซิงค์ข้อมูลธนาคารและพร้อมเพย์ไปยัง g.members ในทุกกลุ่มด้วย
+      for (const grp of store.groups) {
+        if (Array.isArray(grp.members)) {
+          const mIdx = grp.members.findIndex((m: any) => m.id === mem.id);
+          if (mIdx >= 0) {
+            grp.members[mIdx] = { ...grp.members[mIdx], ...mem };
+          }
+        }
+      }
     }
   }
 
