@@ -42,10 +42,18 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchUsers = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`/api/admin/users?q=${encodeURIComponent(search)}&status=${statusFilter}&role=${roleFilter}`);
+      const res = await fetch(
+        `/api/admin/users?q=${encodeURIComponent(search)}&status=${statusFilter}&role=${roleFilter}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.message || "ไม่สามารถโหลดรายชื่อสมาชิกได้");
@@ -55,7 +63,12 @@ export default function AdminUsersPage() {
       setUsers(data.users || []);
       setLoading(false);
     } catch (err: any) {
-      setError(err?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") {
+        setError("การโหลดข้อมูลสมาชิกหมดเวลา (Timeout 8s) กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่");
+      } else {
+        setError(err?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+      }
       setLoading(false);
     }
   };
@@ -221,6 +234,44 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* ERROR BANNER */}
+      {error && (
+        <div
+          style={{
+            padding: "16px 20px",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: "12px",
+            color: "#fca5a5",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <span style={{ fontWeight: 600 }}>⚠️ เกิดข้อผิดพลาด: </span>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={fetchUsers}
+            style={{
+              padding: "6px 14px",
+              background: "#ef4444",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🔄 ลองใหม่อีกครั้ง
+          </button>
+        </div>
+      )}
+
       {/* USERS TABLE */}
       <div
         style={{
@@ -251,7 +302,7 @@ export default function AdminUsersPage() {
                 </tr>
               ) : users.length > 0 ? (
                 users.map((u) => {
-                  const isSuper = u.id === "mem-golf" || u.email?.toLowerCase() === "golf2545mc@gmail.com";
+                  const isSuper = u.systemRole === "super_admin";
                   return (
                     <tr
                       key={u.id}

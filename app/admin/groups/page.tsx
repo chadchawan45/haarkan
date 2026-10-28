@@ -32,10 +32,17 @@ export default function AdminGroupsPage() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchGroups = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       setLoading(true);
       setError("");
-      const res = await fetch(`/api/admin/groups?q=${encodeURIComponent(search)}`);
+      const res = await fetch(`/api/admin/groups?q=${encodeURIComponent(search)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.message || "ไม่สามารถโหลดข้อมูลกลุ่มได้");
@@ -45,7 +52,12 @@ export default function AdminGroupsPage() {
       setGroups(data.groups || []);
       setLoading(false);
     } catch (err: any) {
-      setError(err?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูลกลุ่ม");
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") {
+        setError("การโหลดข้อมูลกลุ่มหมดเวลา (Timeout 8s) กรุณาลองใหม่อีกครั้ง");
+      } else {
+        setError(err?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูลกลุ่ม");
+      }
       setLoading(false);
     }
   };
@@ -146,6 +158,44 @@ export default function AdminGroupsPage() {
           }}
         />
       </div>
+
+      {/* ERROR BANNER */}
+      {error && (
+        <div
+          style={{
+            padding: "16px 20px",
+            background: "rgba(239, 68, 68, 0.1)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: "12px",
+            color: "#fca5a5",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <span style={{ fontWeight: 600 }}>⚠️ เกิดข้อผิดพลาด: </span>
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={fetchGroups}
+            style={{
+              padding: "6px 14px",
+              background: "#ef4444",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "12px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🔄 ลองใหม่อีกครั้ง
+          </button>
+        </div>
+      )}
 
       {/* GROUPS TABLE */}
       <div

@@ -13,13 +13,22 @@ export default function AdminNotificationsPage() {
   const [recentNotifications, setRecentNotifications] = useState<any[]>([]);
 
   const fetchRecent = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6000);
+
     try {
-      const res = await fetch("/api/groups/sync");
+      const res = await fetch("/api/groups/sync", { signal: controller.signal });
+      clearTimeout(timeoutId);
       const data = await res.json();
       if (data.success && Array.isArray(data.notifications)) {
         setRecentNotifications(data.notifications.slice(0, 15));
       }
-    } catch {}
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name !== "AbortError") {
+        console.debug("Fetch recent notifications failed:", err?.message);
+      }
+    }
   };
 
   useEffect(() => {

@@ -10,11 +10,13 @@ import {
 import {
   getAllSharedData,
   addSystemAuditLog,
+  updateUserByAdmin,
 } from "@/lib/shared-groups-store";
+import { verifyPassword, hashPassword } from "@/lib/password";
 
 const loginSchema = z.object({
   identifier: z.string().trim().min(1, "กรุณากรอกอีเมลหรือเบอร์โทรศัพท์"),
-  password: z.string().optional().default(""),
+  password: z.string().min(1, "กรุณากรอกรหัสผ่านเพื่อยืนยันตัวตน"),
 });
 
 export async function POST(request: NextRequest) {
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     const parsed = loginSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
-        { success: false, message: "ข้อมูลนำเข้าไม่ถูกต้อง", details: parsed.error.flatten() },
+        { success: false, message: "กรุณากรอกทั้งอีเมล/เบอร์โทรศัพท์และรหัสผ่าน", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
@@ -43,17 +45,19 @@ export async function POST(request: NextRequest) {
       return false;
     });
 
-    // Check if this is the default Super Admin (Golf) or an authorized system admin
-    const isSuperAdminEmail =
-      cleanInput === "golf2545mc@gmail.com" ||
-      cleanInput === "mem-golf" ||
-      (member && member.email?.toLowerCase() === "golf2545mc@gmail.com");
+    // Determine configured Super Admin email from environment or member role
+    const configuredSuperAdminEmail = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase();
+    const isConfiguredSuperAdmin =
+      configuredSuperAdminEmail &&
+      (cleanInput === configuredSuperAdminEmail ||
+        (member && member.email?.toLowerCase() === configuredSuperAdminEmail));
 
-    const systemRole: SystemRole | null = isSuperAdminEmail
-      ? "super_admin"
-      : member?.systemRole && member.systemRole in ROLE_PERMISSIONS
-      ? (member.systemRole as SystemRole)
-      : null;
+    let systemRole: SystemRole | null = null;
+    if (isConfiguredSuperAdmin) {
+      systemRole = "super_admin";
+    } else if (member?.systemRole && member.systemRole in ROLE_PERMISSIONS && member.systemRole !== "member") {
+      systemRole = member.systemRole as SystemRole;
+    }
 
     // Check authorization: must be an admin role
     if (!systemRole) {
@@ -75,26 +79,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password if member has a set password
-    if (member && member.password && member.password !== password) {
+    // Must have a valid member record and a configured password hash
+    if (!member || !member.password) {
+      addSystemAuditLog({
+        actorName: identifier,
+        action: "admin.login_denied",
+        targetType: "auth",
+        details: { reason: "Account has no password configured" },
+        status: "denied",
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: "บัญชีนี้ยังไม่ได้กำหนดรหัสผ่านความปลอดภัย กรุณาตั้งรหัสผ่านก่อนเข้าสู่ระบบหลังบ้าน",
+        },
+        { status: 403 }
+      );
+    }
+
+    // STRICT PASSWORD VERIFICATION
+    const isPasswordValid = verifyPassword(password, member.password);
+    if (!isPasswordValid) {
       addSystemAuditLog({
         actorId: member.id,
         actorName: member.name,
         actorEmail: member.email,
         action: "admin.login_failed",
         targetType: "auth",
-        details: { reason: "Invalid password" },
+        details: { reason: "Invalid password provided" },
         status: "failure",
       });
 
       return NextResponse.json(
-        { success: false, message: "รหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง" },
+        { success: false, message: "รหัสผ่านไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง" },
         { status: 401 }
       );
     }
 
+    // If legacy plain text password was verified, upgrade hash immediately to scrypt format
+    if (!member.password.startsWith("scrypt:")) {
+      try {
+        const upgradedHash = hashPassword(password);
+        updateUserByAdmin(member.id, { password: upgradedHash } as any);
+      } catch {}
+    }
+
     // If account is suspended
-    if (member && member.status === "suspended") {
+    if (member.status === "suspended") {
       addSystemAuditLog({
         actorId: member.id,
         actorName: member.name,
@@ -112,9 +144,9 @@ export async function POST(request: NextRequest) {
     }
 
     const adminUser: AdminSessionUser = {
-      id: member?.id || "mem-golf",
-      name: member?.name || "Super Admin (กอล์ฟ)",
-      email: member?.email || "golf2545mc@gmail.com",
+      id: member.id,
+      name: member.name,
+      email: member.email || identifier,
       role: systemRole,
       permissions: ROLE_PERMISSIONS[systemRole],
     };

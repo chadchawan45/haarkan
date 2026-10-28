@@ -276,6 +276,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isDemo, setIsDemo] = useState<boolean>(false);
   const deletedGroupIdsRef = useRef<Set<string>>(new Set());
+  const isAuthenticatedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    isAuthenticatedRef.current = isAuthenticated;
+  }, [isAuthenticated]);
 
   // กรองเฉพาะกลุ่มที่ผู้ใช้คนปัจจุบันเป็นผู้สร้าง หรือเป็นสมาชิกในกลุ่ม
   const userGroups = useMemo(() => {
@@ -404,8 +409,17 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
 
     // ฟังก์ชันซิงค์ข้อมูลทั้งหมดจากเซิร์ฟเวอร์เพื่อให้ข้อมูลอัปเดตตรงกันข้ามเครื่อง/ข้ามบัญชี
     const syncFromServer = () => {
-      fetch("/api/groups/sync")
-        .then((res) => res.json())
+      if (!isAuthenticatedRef.current) return;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+      fetch("/api/groups/sync", { signal: controller.signal })
+        .then((res) => {
+          clearTimeout(timeoutId);
+          if (res.status === 401) return null;
+          return res.json();
+        })
         .then((data) => {
           if (!data?.success) return;
 
@@ -474,7 +488,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
             });
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          clearTimeout(timeoutId);
+          if (err?.name !== "AbortError") {
+            console.debug("Sync poll error:", err?.message);
+          }
+        });
     };
 
     syncFromServer();
@@ -520,6 +539,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   }, [groups, currentGroupId, group, members, expenses, payments, notifications, currentMemberId, isAuthenticated, isDemo]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const timer = setTimeout(() => {
       fetch("/api/groups/sync", {
         method: "POST",
@@ -530,10 +550,12 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
           payments,
           members: members.map(({ password: _, ...rest }) => rest),
         }),
-      }).catch(() => {});
+      }).catch((err) => {
+        console.warn("Sync push failed:", err);
+      });
     }, 800);
     return () => clearTimeout(timer);
-  }, [groups, expenses, payments, members]);
+  }, [groups, expenses, payments, members, isAuthenticated]);
 
 
   // สมาชิกเฉพาะของกลุ่มที่กำลังเปิดใช้งาน (Current Group Members)
@@ -1194,6 +1216,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       setCurrentMemberId(found.id);
       setIsAuthenticated(true);
       setIsDemo(false);
+      fetch("/api/auth/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memberId: found.id, password: found.password }),
+      }).catch(() => {});
       return true;
     }
     return false;
@@ -1268,6 +1295,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setIsAuthenticated(false);
     setIsDemo(false);
+    fetch("/api/auth/session", { method: "DELETE" }).catch(() => {});
   };
 
   const demoLogin = () => {
@@ -1302,7 +1330,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       avatarUrl: data.avatarUrl || undefined,
       email: data.email?.trim() || undefined,
       phone: data.phone?.trim() || undefined,
-      password: data.password || "password123",
+      password: data.password ? data.password.trim() : undefined,
       bankName: data.bankName?.trim() || undefined,
       bankAccountNumber: data.bankAccountNumber?.trim() || undefined,
       promptpayNumber: data.promptpayNumber?.trim() || (data.phone?.trim() || undefined),
@@ -1314,13 +1342,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
     setIsDemo(false);
 
-    // ส่งสมาชิกใหม่ไปยังเซิร์ฟเวอร์ทันที
-    fetch("/api/groups/sync", {
+    // Create secure member session
+    fetch("/api/auth/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        members: nextMembers.map(({ password: _, ...rest }) => rest),
-      }),
+      body: JSON.stringify({ memberId: newMember.id, password: data.password }),
     }).catch(() => {});
 
     return newMember;

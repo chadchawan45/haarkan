@@ -38,36 +38,55 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const isLoginPage = pathname === "/admin/login";
 
-  useEffect(() => {
+  const checkAuth = React.useCallback(async () => {
     if (isLoginPage) {
       setLoading(false);
       return;
     }
 
-    let isMounted = true;
-    fetch("/api/admin/auth/me")
-      .then((res) => res.json())
-      .then((data) => {
-        if (!isMounted) return;
-        if (data.success && data.user) {
-          setAdminUser(data.user);
-          setLoading(false);
-        } else {
-          router.replace("/admin/login");
-        }
-      })
-      .catch(() => {
-        if (isMounted) router.replace("/admin/login");
-      });
+    setLoading(true);
+    setAuthError(null);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [pathname, isLoginPage, router]);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const res = await fetch("/api/admin/auth/me", {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.status === 401) {
+        router.replace("/admin/login");
+        return;
+      }
+
+      const data = await res.json();
+      if (data.success && data.user) {
+        setAdminUser(data.user);
+        setLoading(false);
+      } else {
+        router.replace("/admin/login");
+      }
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") {
+        setAuthError("การตรวจสอบสิทธิ์หมดเวลา (Timeout 8s) กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต");
+      } else {
+        setAuthError(err?.message || "ไม่สามารถเชื่อมต่อระบบหลังบ้านได้ กรุณาลองใหม่อีกครั้ง");
+      }
+      setLoading(false);
+    }
+  }, [isLoginPage, router]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleLogout = async () => {
     try {
@@ -108,6 +127,73 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <p style={{ fontSize: "14px", color: "var(--text-muted, #94a3b8)" }}>
           กำลังตรวจสอบสิทธิ์การเข้าสู่ระบบหลังบ้าน...
         </p>
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--bg-main, #0f172a)",
+          color: "var(--text-primary, #f8fafc)",
+          padding: "24px",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "460px",
+            width: "100%",
+            background: "rgba(239, 68, 68, 0.08)",
+            border: "1px solid rgba(239, 68, 68, 0.25)",
+            borderRadius: "16px",
+            padding: "32px",
+            textAlign: "center",
+          }}
+        >
+          <div style={{ fontSize: "40px", marginBottom: "16px" }}>⚠️</div>
+          <h2 style={{ fontSize: "18px", fontWeight: 700, margin: "0 0 8px", color: "#f87171" }}>
+            ไม่สามารถเชื่อมต่อระบบหลังบ้าน
+          </h2>
+          <p style={{ fontSize: "14px", color: "var(--text-muted, #94a3b8)", margin: "0 0 24px", lineHeight: 1.5 }}>
+            {authError}
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button
+              onClick={checkAuth}
+              style={{
+                padding: "10px 20px",
+                background: "#10b981",
+                color: "#ffffff",
+                border: "none",
+                borderRadius: "10px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              🔄 ลองใหม่อีกครั้ง
+            </button>
+            <button
+              onClick={() => router.replace("/admin/login")}
+              style={{
+                padding: "10px 20px",
+                background: "rgba(255, 255, 255, 0.08)",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                color: "#ffffff",
+                borderRadius: "10px",
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              ไปหน้าเข้าสู่ระบบ
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

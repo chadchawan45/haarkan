@@ -42,14 +42,30 @@ export function SiteAnnouncementBanner() {
       }
     } catch {}
 
-    fetch("/api/admin/settings")
-      .then((res) => res.json())
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch("/api/admin/settings", { signal: controller.signal })
+      .then((res) => {
+        clearTimeout(timeoutId);
+        return res.json();
+      })
       .then((data) => {
         if (data.success && data.settings?.announcement?.active && data.settings?.announcement?.content) {
           setAnnouncement(data.settings.announcement);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        clearTimeout(timeoutId);
+        if (err?.name !== "AbortError") {
+          console.debug("Announcement fetch error:", err?.message);
+        }
+      });
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, []);
 
   if (dismissed || !announcement || !announcement.active || !announcement.content) {

@@ -4,9 +4,17 @@ import {
   joinGroupByCodeOnServer,
   syncClientData,
   getAllSharedGroups,
+  resetTestStore,
+  broadcastNotification,
+  restoreStoreData,
+  updateUserByAdmin,
 } from "./shared-groups-store";
 
 describe("Shared Groups Store", () => {
+  beforeEach(() => {
+    resetTestStore();
+  });
+
   it("finds seeded group by code (case-insensitive)", () => {
     const result = findGroupByCode("ha8k29");
     expect(result.group).toBeDefined();
@@ -51,5 +59,29 @@ describe("Shared Groups Store", () => {
     const lookup = findGroupByCode("univ26");
     expect(lookup.group).toBeDefined();
     expect(lookup.group?.name).toBe("กลุ่มเพื่อนมหาวิทยาลัย");
+  });
+
+  it("broadcasts notifications properly in memory store", () => {
+    const broadcast = broadcastNotification({
+      title: "ประกาศสำคัญ",
+      body: "ทดสอบการส่งประกาศ",
+      type: "announcement",
+    });
+
+    expect(broadcast.success).toBe(true);
+    expect(broadcast.notification.title).toBe("ประกาศสำคัญ");
+  });
+
+  it("restores backup data safely in memory store", () => {
+    const restoreResult = restoreStoreData({
+      groups: [{ id: "restored-1", name: "กลุ่มกู้คืน", code: "REST01", weekStartsOn: 1, defaultCurrency: "THB", description: "" }],
+      members: [],
+      expenses: [],
+      payments: [],
+    });
+
+    expect(restoreResult.success).toBe(true);
+    const lookup = findGroupByCode("rest01");
+    expect(lookup.group?.name).toBe("กลุ่มกู้คืน");
   });
 });

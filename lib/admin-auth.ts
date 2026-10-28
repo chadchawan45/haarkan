@@ -11,11 +11,26 @@ export interface AdminSessionUser {
   permissions: string[];
 }
 
-const DEFAULT_SECRET = "haarkan_super_secret_admin_jwt_salt_2026_x89";
 const ADMIN_COOKIE_NAME = "haarkan_admin_session";
 
-function getSecretKey(): string {
-  return process.env.ADMIN_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SECRET;
+declare global {
+  // eslint-disable-next-line no-var
+  var __ephemeralDevJwtSecret: string | undefined;
+}
+
+export function getSecretKey(): string {
+  const secret = process.env.ADMIN_JWT_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("SECURITY_CONFIG_ERROR: ADMIN_JWT_SECRET environment variable is missing on server");
+    }
+    // In local dev/test only, generate ephemeral in-memory secret
+    if (!globalThis.__ephemeralDevJwtSecret) {
+      globalThis.__ephemeralDevJwtSecret = crypto.randomBytes(32).toString("hex");
+    }
+    return globalThis.__ephemeralDevJwtSecret;
+  }
+  return secret;
 }
 
 export const ROLE_PERMISSIONS: Record<SystemRole, string[]> = {

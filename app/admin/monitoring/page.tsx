@@ -33,10 +33,15 @@ export default function AdminMonitoringPage() {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const fetchHealth = async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     try {
       setLoading(true);
       setError("");
-      const res = await fetch("/api/admin/system/status");
+      const res = await fetch("/api/admin/system/status", { signal: controller.signal });
+      clearTimeout(timeoutId);
+
       const data = await res.json();
       if (!res.ok || !data.success) {
         setError(data.message || "ไม่สามารถตรวจสอบสถานะระบบได้");
@@ -46,7 +51,12 @@ export default function AdminMonitoringPage() {
       setHealth(data.health);
       setLoading(false);
     } catch (err: any) {
-      setError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") {
+        setError("การตรวจสอบสถานะหมดเวลา (Timeout 8s) กรุณาลองใหม่อีกครั้ง");
+      } else {
+        setError(err?.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ");
+      }
       setLoading(false);
     }
   };
@@ -146,7 +156,21 @@ export default function AdminMonitoringPage() {
         </div>
       ) : error || !health ? (
         <div style={{ padding: "24px", background: "rgba(239, 68, 68, 0.1)", borderRadius: "14px", color: "#fca5a5" }}>
-          ⚠️ {error || "ไม่สามารถเชื่อมต่อระบบตรวจสอบสถานะได้"}
+          <p style={{ margin: "0 0 12px", fontWeight: 600 }}>⚠️ {error || "ไม่สามารถเชื่อมต่อระบบตรวจสอบสถานะได้"}</p>
+          <button
+            onClick={fetchHealth}
+            style={{
+              padding: "8px 16px",
+              background: "#ef4444",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: "8px",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            🔄 ลองใหม่อีกครั้ง
+          </button>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>

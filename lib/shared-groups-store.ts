@@ -5,13 +5,14 @@ import os from "os";
 export interface SharedGroupData {
   id: string;
   name: string;
-  description: string;
-  weekStartsOn: number;
-  defaultCurrency: string;
+  description?: string;
+  weekStartsOn?: number;
+  defaultCurrency?: string;
   creatorMemberId?: string;
   code: string;
   bannerGradient?: string;
   createdAt?: string;
+  updatedAt?: string;
   memberIds?: string[];
   members?: any[];
   expenses?: any[];
@@ -49,6 +50,7 @@ interface StoreData {
   payments: any[];
   members: any[];
   notifications?: any[];
+  backupVersions?: any[];
   systemAuditLogs?: SystemAuditLogItem[];
   siteSettings?: SiteSettingsData;
   lastUpdated: string;
@@ -95,7 +97,31 @@ declare global {
   var __sharedGroupsStore: StoreData | undefined;
 }
 
-function readStore(): StoreData {
+function isTestEnvironment(): boolean {
+  return process.env.NODE_ENV === "test" || !!process.env.VITEST;
+}
+
+export function resetTestStore(): void {
+  globalThis.__sharedGroupsStore = {
+    groups: JSON.parse(JSON.stringify(SEED_GROUPS)),
+    expenses: [],
+    payments: [],
+    members: [],
+    notifications: [],
+    systemAuditLogs: [],
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+export function readStore(): StoreData {
+  // If in TEST mode, strictly use in-memory store to protect production data files
+  if (isTestEnvironment()) {
+    if (!globalThis.__sharedGroupsStore) {
+      resetTestStore();
+    }
+    return globalThis.__sharedGroupsStore!;
+  }
+
   // 1. ถ้ามีข้อมูลในหน่วยความจำ ให้ใช้เป็นหลัก
   if (globalThis.__sharedGroupsStore && globalThis.__sharedGroupsStore.groups.length > 0) {
     return globalThis.__sharedGroupsStore;
@@ -149,7 +175,7 @@ function readStore(): StoreData {
     siteSettings: {
       siteName: "หารกัน (HaarKan)",
       tagline: "ระบบจัดการแชร์ค่าใช้จ่ายและเคลียร์เงินในกลุ่ม",
-      contactEmail: "golf2545mc@gmail.com",
+      contactEmail: process.env.SUPPORT_EMAIL || "support@haarkan.local",
       maintenanceMode: false,
       announcement: {
         active: false,
@@ -166,9 +192,14 @@ function readStore(): StoreData {
   return initial;
 }
 
-function writeStore(data: StoreData): void {
+export function writeStore(data: StoreData): void {
   data.lastUpdated = new Date().toISOString();
   globalThis.__sharedGroupsStore = data;
+
+  // Never write to production store file in test mode
+  if (isTestEnvironment()) {
+    return;
+  }
 
   // ลองเขียนลง data/
   let written = false;
@@ -418,7 +449,7 @@ export function getSiteSettings(): SiteSettingsData {
     store.siteSettings || {
       siteName: "หารกัน (HaarKan)",
       tagline: "ระบบจัดการแชร์ค่าใช้จ่ายและเคลียร์เงินในกลุ่ม",
-      contactEmail: "golf2545mc@gmail.com",
+      contactEmail: process.env.SUPPORT_EMAIL || "support@haarkan.local",
       maintenanceMode: false,
       announcement: {
         active: false,
@@ -448,12 +479,13 @@ export function getAllUsersForAdmin(): any[] {
   const members = store.members || [];
   const groups = store.groups || [];
   const expenses = store.expenses || [];
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "").trim().toLowerCase();
 
   return members.map((m) => {
     // Determine system role
     let systemRole = m.systemRole;
     if (!systemRole) {
-      if (m.id === "mem-golf" || m.email?.toLowerCase() === "golf2545mc@gmail.com") {
+      if (superAdminEmail && m.email?.toLowerCase() === superAdminEmail) {
         systemRole = "super_admin";
       } else {
         systemRole = "member";
@@ -510,14 +542,16 @@ export function updateUserByAdmin(
   }
 
   const current = store.members[idx];
+  const superAdminEmail = (process.env.SUPER_ADMIN_EMAIL || "").trim().toLowerCase();
 
-  // Prevent demoting golf2545mc if they are the primary super admin
+  // Prevent demoting primary super admin configured in environment
   if (
-    (current.id === "mem-golf" || current.email?.toLowerCase() === "golf2545mc@gmail.com") &&
+    superAdminEmail &&
+    current.email?.toLowerCase() === superAdminEmail &&
     updates.systemRole &&
     updates.systemRole !== "super_admin"
   ) {
-    return { success: false, message: "ไม่สามารถลดระดับสิทธิ์ของ Super Admin หลักได้" };
+    return { success: false, message: "ไม่สามารถลดระดับสิทธิ์ของ Super Admin ที่กำหนดไว้ในตัวแปรระบบได้" };
   }
 
   const updatedUser = {

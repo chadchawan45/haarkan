@@ -29,8 +29,8 @@ export function Navbar() {
   const [showNotifs, setShowNotifs] = useState(false);
 
   const isSystemAdmin =
-    currentMember?.id === "mem-golf" ||
-    currentMember?.email?.toLowerCase() === "golf2545mc@gmail.com";
+    (currentMember as any)?.systemRole === "super_admin" ||
+    (currentMember as any)?.systemRole === "admin";
 
   const navItems = isAuthenticated
     ? isDemo

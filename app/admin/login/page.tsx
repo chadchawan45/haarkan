@@ -7,21 +7,32 @@ import { PasswordInput } from "@/components/PasswordInput";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [identifier, setIdentifier] = useState("golf2545mc@gmail.com");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   // Check if already logged in as admin
   useEffect(() => {
-    fetch("/api/admin/auth/me")
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    fetch("/api/admin/auth/me", { signal: controller.signal })
       .then((res) => res.json())
       .then((data) => {
+        clearTimeout(timeoutId);
         if (data.success && data.user) {
           router.replace("/admin");
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        clearTimeout(timeoutId);
+      });
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,7 +140,7 @@ export default function AdminLoginPage() {
               required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="golf2545mc@gmail.com หรือ 081-234-5678"
+              placeholder="admin@example.com หรือ 081-234-5678"
               style={{
                 width: "100%",
                 padding: "12px 14px",

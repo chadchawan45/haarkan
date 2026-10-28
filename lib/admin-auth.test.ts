@@ -50,4 +50,23 @@ describe("admin-auth module", () => {
     expect(hasPermission("analyst", "reports.export")).toBe(true);
     expect(hasPermission("analyst", "users.write")).toBe(false);
   });
+
+  it("throws error in production when ADMIN_JWT_SECRET is missing", async () => {
+    const { getSecretKey } = await import("./admin-auth");
+    const prevNodeEnv = process.env.NODE_ENV;
+    const prevJwt = process.env.ADMIN_JWT_SECRET;
+    const prevSupabase = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    try {
+      (process.env as any).NODE_ENV = "production";
+      delete process.env.ADMIN_JWT_SECRET;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      expect(() => getSecretKey()).toThrow(/SECURITY_CONFIG_ERROR/);
+    } finally {
+      (process.env as any).NODE_ENV = prevNodeEnv;
+      if (prevJwt) process.env.ADMIN_JWT_SECRET = prevJwt;
+      if (prevSupabase) process.env.SUPABASE_SERVICE_ROLE_KEY = prevSupabase;
+    }
+  });
 });

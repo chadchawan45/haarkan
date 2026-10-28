@@ -19,7 +19,7 @@ export default function AdminSettingsPage() {
   const [form, setForm] = useState<SiteSettingsForm>({
     siteName: "หารกัน (HaarKan)",
     tagline: "ระบบจัดการแชร์ค่าใช้จ่ายและเคลียร์เงินในกลุ่ม",
-    contactEmail: "golf2545mc@gmail.com",
+    contactEmail: "",
     maintenanceMode: false,
     announcement: {
       active: false,
@@ -30,33 +30,54 @@ export default function AdminSettingsPage() {
   });
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  useEffect(() => {
-    fetch("/api/admin/settings")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.settings) {
-          setForm({
-            siteName: data.settings.siteName || "หารกัน (HaarKan)",
-            tagline: data.settings.tagline || "",
-            contactEmail: data.settings.contactEmail || "",
-            maintenanceMode: !!data.settings.maintenanceMode,
-            announcement: data.settings.announcement || {
-              active: false,
-              title: "",
-              content: "",
-              type: "info",
-            },
-          });
-        }
+  const fetchSettings = React.useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const res = await fetch("/api/admin/settings", { signal: controller.signal });
+      clearTimeout(timeoutId);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setLoadError(data.message || "ไม่สามารถโหลดการตั้งค่าระบบได้");
         setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+        return;
+      }
+      if (data.settings) {
+        setForm({
+          siteName: data.settings.siteName || "หารกัน (HaarKan)",
+          tagline: data.settings.tagline || "",
+          contactEmail: data.settings.contactEmail || "",
+          maintenanceMode: !!data.settings.maintenanceMode,
+          announcement: data.settings.announcement || {
+            active: false,
+            title: "",
+            content: "",
+            type: "info",
+          },
+        });
+      }
+      setLoading(false);
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err?.name === "AbortError") {
+        setLoadError("การโหลดการตั้งค่าหมดเวลา (Timeout 8s) กรุณาลองใหม่อีกครั้ง");
+      } else {
+        setLoadError(err?.message || "เกิดข้อผิดพลาดในการโหลดการตั้งค่า");
+      }
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +107,49 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div style={{ textAlign: "center", padding: "60px 0", color: "var(--text-muted, #94a3b8)" }}>
-        กำลังโหลดการตั้งค่า...
+        <div
+          style={{
+            width: "36px",
+            height: "36px",
+            border: "3px solid rgba(16, 185, 129, 0.2)",
+            borderTopColor: "#10b981",
+            borderRadius: "50%",
+            animation: "spin 1s linear infinite",
+            margin: "0 auto 12px",
+          }}
+        />
+        กำลังโหลดการตั้งค่าระบบ...
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div
+        style={{
+          padding: "24px",
+          background: "rgba(239, 68, 68, 0.1)",
+          border: "1px solid rgba(239, 68, 68, 0.25)",
+          borderRadius: "14px",
+          color: "#fca5a5",
+          maxWidth: "600px",
+        }}
+      >
+        <p style={{ margin: "0 0 12px", fontWeight: 600 }}>⚠️ {loadError}</p>
+        <button
+          onClick={fetchSettings}
+          style={{
+            padding: "8px 16px",
+            background: "#ef4444",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: "8px",
+            fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          🔄 ลองใหม่อีกครั้ง
+        </button>
       </div>
     );
   }

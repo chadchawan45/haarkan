@@ -66,40 +66,10 @@ function LoginForm() {
 
       const redirectUrl = searchParams.get("redirect") || "/";
 
-      // กรณีพิเศษสำหรับบัญชีเจ้าของระบบ golf2545mc@gmail.com
-      if (!found && (lower === "golf2545mc@gmail.com" || lower.includes("golf"))) {
-        found = registerMember({
-          name: "ชัชวาลย์",
-          nickname: "กอล์ฟ",
-          email: "golf2545mc@gmail.com",
-          password: password.trim() || "password123",
-          role: "admin",
-        });
-        login(found.id);
-        router.push(redirectUrl);
-        return;
-      }
-
-      // หากยังไม่พบบัญชีในระบบ (เช่น เพื่อนที่ได้รับลิงก์เชิญ หรือผู้ใช้ใหม่)
-      // ให้สร้างบัญชีและเข้าสู่ระบบให้อัตโนมัติทันที
+      // หากยังไม่พบบัญชีในระบบ ให้แจ้งผู้ใช้สมัครสมาชิกโดยตรง ไม่สร้างบัญชีพร้อม default password123
       if (!found) {
-        const defaultName = isEmail
-          ? cleanInput.split("@")[0]
-          : isPhone
-          ? `ผู้ใช้ ${cleanDigits.slice(-4)}`
-          : cleanInput;
-
-        found = registerMember({
-          name: defaultName,
-          nickname: isEmail ? defaultName : isPhone ? `คุณ${cleanDigits.slice(-4)}` : defaultName,
-          email: isEmail ? lower : undefined,
-          phone: isPhone ? cleanDigits : undefined,
-          promptpayNumber: isPhone ? cleanDigits : undefined,
-          password: password.trim() || "password123",
-          role: "member",
-        });
-        login(found.id);
-        router.push(redirectUrl);
+        setNotFoundAccount(cleanInput);
+        setError("ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบอีเมล/เบอร์โทรศัพท์ หรือสมัครสมาชิกใหม่");
         return;
       }
 
