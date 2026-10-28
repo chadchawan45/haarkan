@@ -2395,8 +2395,40 @@ button, a, input, select, textarea {
 /* Balances Grids */
 .net-balances-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.net-balance-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justifyContent: space-between;
+}
+
+.net-balance-card:hover {
+  border-color: var(--border-strong);
+}
+
+.net-balance-card.is-me {
+  background: rgba(39, 174, 96, 0.05);
+  border: 1.5px solid var(--primary);
+  box-shadow: 0 4px 16px rgba(39, 174, 96, 0.08);
+}
+
+[data-theme="dark"] .net-balance-card {
+  background: #111f17;
+  border-color: #1e3628;
+}
+
+[data-theme="dark"] .net-balance-card.is-me {
+  background: rgba(39, 174, 96, 0.12);
+  border-color: #27ae60;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
 .settlement-cards-grid {

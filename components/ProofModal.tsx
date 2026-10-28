@@ -72,21 +72,21 @@ export function ProofModal({ payment, onClose }: ProofModalProps) {
 
         <div style={{ marginBottom: "16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-            <span style={{ color: "#666", fontSize: "13px" }}>ผู้โอนเงิน:</span>
-            <strong>{fromMember?.name}</strong>
+            <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>ผู้โอนเงิน:</span>
+            <strong style={{ color: "var(--text-main)" }}>{fromMember?.name}</strong>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-            <span style={{ color: "#666", fontSize: "13px" }}>ผู้รับเงิน:</span>
-            <strong>{toMember?.name}</strong>
+            <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>ผู้รับเงิน:</span>
+            <strong style={{ color: "var(--text-main)" }}>{toMember?.name}</strong>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-            <span style={{ color: "#666", fontSize: "13px" }}>จำนวนเงิน:</span>
-            <strong style={{ fontSize: "16px", color: "#1f6f53" }}>
+            <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>จำนวนเงิน:</span>
+            <strong style={{ fontSize: "16px", color: "var(--primary)" }}>
               {formatTHB(payment.amountSatang)}
             </strong>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
-            <span style={{ color: "#666", fontSize: "13px" }}>สถานะ:</span>
+            <span style={{ color: "var(--text-muted)", fontSize: "13px" }}>สถานะ:</span>
             <span className={`badge badge-${payment.status}`}>{payment.status}</span>
           </div>
         </div>
@@ -94,15 +94,15 @@ export function ProofModal({ payment, onClose }: ProofModalProps) {
         {payment.proof ? (
           <div
             style={{
-              background: "#fafbfa",
-              border: "1px solid #e6eae6",
+              background: "rgba(148, 163, 184, 0.05)",
+              border: "1px solid var(--border)",
               borderRadius: "12px",
               padding: "12px",
               textAlign: "center",
               marginBottom: "16px",
             }}
           >
-            <p style={{ fontSize: "12px", color: "#666", margin: "0 0 8px" }}>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px" }}>
               📄 {payment.proof.filename}
             </p>
             <img

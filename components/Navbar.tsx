@@ -145,16 +145,16 @@ export function Navbar() {
                             style={{
                               padding: "10px",
                               borderRadius: "8px",
-                              background: n.read ? "transparent" : "#f0f8f4",
+                              background: n.read ? "transparent" : "rgba(39, 174, 96, 0.12)",
                               marginBottom: "6px",
                               cursor: "pointer",
                               fontSize: "12px",
                             }}
                           >
-                            <div style={{ fontWeight: 600, color: n.read ? "#555" : "#1f6f53" }}>
+                            <div style={{ fontWeight: 600, color: n.read ? "var(--text-muted)" : "var(--primary)" }}>
                               {n.title}
                             </div>
-                            <div style={{ color: "#666", marginTop: "2px" }}>{n.body}</div>
+                            <div style={{ color: "var(--text-muted)", marginTop: "2px" }}>{n.body}</div>
                           </div>
                         ))
                       )}
