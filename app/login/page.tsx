@@ -11,51 +11,63 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const { members, login, isAuthenticated, currentMember, registerMember, updateProfile } = useGroup();
 
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [notFoundEmail, setNotFoundEmail] = useState("");
+  const [notFoundAccount, setNotFoundAccount] = useState("");
   const [loading, setLoading] = useState(false);
   const [registeredNotice, setRegisteredNotice] = useState(false);
   const [wrongPasswordMember, setWrongPasswordMember] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
-    const qEmail = searchParams.get("email");
-    if (qEmail) {
-      setEmail(qEmail);
+    const qAccount = searchParams.get("account") || searchParams.get("email");
+    if (qAccount) {
+      setAccount(qAccount);
     }
     if (searchParams.get("registered") === "true") {
       setRegisteredNotice(true);
     }
   }, [searchParams]);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setNotFoundEmail("");
+    setNotFoundAccount("");
     setWrongPasswordMember(null);
     setLoading(true);
 
     try {
-      const cleanInput = email.trim().toLowerCase();
+      const cleanInput = account.trim();
       if (!cleanInput) {
-        setError("กรุณากรอกอีเมลของคุณ");
+        setError("กรุณากรอกเบอร์โทรศัพท์หรืออีเมลของคุณ");
         return;
       }
 
-      // ค้นหาตามอีเมลจริงเป็นลำดับแรก หรือตามชื่อผู้ใช้/ชื่อเล่น/ID
-      let found = members.find(
-        (m) =>
-          (m.email && m.email.toLowerCase() === cleanInput) ||
-          m.name.toLowerCase() === cleanInput ||
-          m.nickname?.toLowerCase() === cleanInput ||
-          m.id.toLowerCase() === cleanInput
-      );
+      const isEmail = cleanInput.includes("@");
+      const cleanDigits = cleanInput.replace(/[^0-9]/g, "");
+      const isPhone = !isEmail && cleanDigits.length >= 9 && cleanDigits.length <= 10;
+      const lower = cleanInput.toLowerCase();
+
+      // ค้นหาตามเบอร์โทรศัพท์, อีเมลจริง, ชื่อผู้ใช้/ชื่อเล่น, หรือ ID
+      let found = members.find((m) => {
+        // ค้นหาด้วยอีเมล
+        if (m.email && m.email.toLowerCase() === lower) return true;
+        // ค้นหาด้วยเบอร์โทรศัพท์ หรือเลขพร้อมเพย์
+        if (cleanDigits.length >= 9) {
+          if (m.phone && m.phone.replace(/[^0-9]/g, "") === cleanDigits) return true;
+          if (m.promptpayNumber && m.promptpayNumber.replace(/[^0-9]/g, "") === cleanDigits) return true;
+        }
+        // ค้นหาด้วยชื่อ หรือชื่อเล่น
+        if (m.name.toLowerCase() === lower) return true;
+        if (m.nickname && m.nickname.toLowerCase() === lower) return true;
+        if (m.id.toLowerCase() === lower) return true;
+        return false;
+      });
 
       const redirectUrl = searchParams.get("redirect") || "/";
 
       // กรณีพิเศษสำหรับบัญชีเจ้าของระบบ golf2545mc@gmail.com
-      if (!found && (cleanInput === "golf2545mc@gmail.com" || cleanInput.includes("golf"))) {
+      if (!found && (lower === "golf2545mc@gmail.com" || lower.includes("golf"))) {
         found = registerMember({
           name: "ชัชวาลย์",
           nickname: "กอล์ฟ",
@@ -71,11 +83,18 @@ function LoginForm() {
       // หากยังไม่พบบัญชีในระบบ (เช่น เพื่อนที่ได้รับลิงก์เชิญ หรือผู้ใช้ใหม่)
       // ให้สร้างบัญชีและเข้าสู่ระบบให้อัตโนมัติทันที
       if (!found) {
-        const defaultName = cleanInput.includes("@") ? cleanInput.split("@")[0] : cleanInput;
+        const defaultName = isEmail
+          ? cleanInput.split("@")[0]
+          : isPhone
+          ? `ผู้ใช้ ${cleanDigits.slice(-4)}`
+          : cleanInput;
+
         found = registerMember({
           name: defaultName,
-          nickname: defaultName,
-          email: cleanInput.includes("@") ? cleanInput : `${cleanInput}@example.com`,
+          nickname: isEmail ? defaultName : isPhone ? `คุณ${cleanDigits.slice(-4)}` : defaultName,
+          email: isEmail ? lower : undefined,
+          phone: isPhone ? cleanDigits : undefined,
+          promptpayNumber: isPhone ? cleanDigits : undefined,
           password: password.trim() || "password123",
           role: "member",
         });
@@ -118,9 +137,9 @@ function LoginForm() {
           <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "14px", marginTop: "8px" }}>
             ระบบจัดการค่าใช้จ่ายกลุ่ม (Group Expense Manager)
           </p>
-          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>เข้าสู่ระบบด้วยอีเมล</h2>
+          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>เข้าสู่ระบบ</h2>
           <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "13px", margin: "6px 0 0" }}>
-            กรอกอีเมลและรหัสผ่านจริงของคุณเพื่อเข้าใช้งาน
+            กรอกเบอร์โทรศัพท์ หรือ อีเมล และรหัสผ่านเพื่อเข้าใช้งาน
           </p>
         </div>
 
@@ -140,7 +159,7 @@ function LoginForm() {
             }}
           >
             <span>✓</span>
-            <span>สมัครสมาชิกสำเร็จแล้ว! กรุณาเข้าสู่ระบบด้วยอีเมลและรหัสผ่านของคุณ</span>
+            <span>สมัครสมาชิกสำเร็จแล้ว! กรุณาเข้าสู่ระบบด้วยเบอร์โทรหรืออีเมลของคุณ</span>
           </div>
         )}
 
@@ -180,20 +199,20 @@ function LoginForm() {
           </div>
         )}
 
-        <form onSubmit={handleEmailLogin}>
+        <form onSubmit={handleLogin}>
           <label className="field">
-            <span>อีเมลสำหรับเข้าสู่ระบบ (Email) <span style={{ color: "#d9483b" }}>*</span></span>
+            <span>เบอร์โทรศัพท์ หรือ อีเมล <span style={{ color: "#d9483b" }}>*</span></span>
             <input
-              type="email"
-              placeholder="เช่น yourname@gmail.com หรือ somchai@example.com"
-              value={email}
+              type="text"
+              placeholder="เช่น 081-234-5678 หรือ yourname@gmail.com"
+              value={account}
               onChange={(e) => {
-                setEmail(e.target.value);
-                if (notFoundEmail) setNotFoundEmail("");
+                setAccount(e.target.value);
+                if (notFoundAccount) setNotFoundAccount("");
               }}
               required
               autoFocus
-              autoComplete="email"
+              autoComplete="username"
             />
           </label>
 
@@ -253,13 +272,13 @@ function LoginForm() {
                       </button>
                     </div>
                   )}
-                  {notFoundEmail && (
+                  {notFoundAccount && (
                     <div style={{ marginTop: "8px" }}>
                       <Link
                         href={
                           searchParams.get("redirect")
-                            ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}&email=${encodeURIComponent(notFoundEmail)}`
-                            : `/register?email=${encodeURIComponent(notFoundEmail)}`
+                            ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}&account=${encodeURIComponent(notFoundAccount)}`
+                            : `/register?account=${encodeURIComponent(notFoundAccount)}`
                         }
                         className="primary"
                         style={{
@@ -270,7 +289,7 @@ function LoginForm() {
                           textDecoration: "none",
                         }}
                       >
-                        ➔ สมัครสมาชิกด้วยอีเมลนี้ทันที
+                        ➔ สมัครสมาชิกด้วยบัญชีนี้ทันที
                       </Link>
                     </div>
                   )}
@@ -285,7 +304,7 @@ function LoginForm() {
             disabled={loading}
             style={{ fontWeight: 700, padding: "12px", fontSize: "15px" }}
           >
-            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบด้วยอีเมล"}
+            {loading ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
           </button>
         </form>
 
@@ -294,13 +313,13 @@ function LoginForm() {
           <Link
             href={
               searchParams.get("redirect")
-                ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}${email ? `&email=${encodeURIComponent(email)}` : ""}`
-                : (email ? `/register?email=${encodeURIComponent(email)}` : "/register")
+                ? `/register?redirect=${encodeURIComponent(searchParams.get("redirect")!)}${account ? `&account=${encodeURIComponent(account)}` : ""}`
+                : (account ? `/register?account=${encodeURIComponent(account)}` : "/register")
             }
             className="link"
             style={{ fontWeight: 700 }}
           >
-            สมัครสมาชิกใหม่ด้วยอีเมลที่นี่ ➔
+            สมัครสมาชิกใหม่ที่นี่ ➔
           </Link>
         </div>
 

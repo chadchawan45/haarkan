@@ -52,6 +52,7 @@ export default function ProfilePage() {
   const [name, setName] = useState(currentMember?.name || "");
   const [nickname, setNickname] = useState(currentMember?.nickname || "");
   const [email, setEmail] = useState(currentMember?.email || "");
+  const [phone, setPhone] = useState(currentMember?.phone || "");
   const [avatarUrl, setAvatarUrl] = useState<string>(currentMember?.avatarUrl || "");
   const [avatarColor, setAvatarColor] = useState<string>(currentMember?.avatarColor || "#1f6f53");
 
@@ -78,6 +79,7 @@ export default function ProfilePage() {
       setName(currentMember.name || "");
       setNickname(currentMember.nickname || "");
       setEmail(currentMember.email || "");
+      setPhone(currentMember.phone || "");
       setAvatarUrl(currentMember.avatarUrl || "");
       setAvatarColor(currentMember.avatarColor || "#1f6f53");
       setBankName(currentMember.bankName || THAI_BANKS[0]);
@@ -182,6 +184,7 @@ export default function ProfilePage() {
       name: name.trim(),
       nickname: nickname.trim() || undefined,
       email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
       avatarUrl: avatarUrl || undefined,
       avatarColor,
       password: newPassword.trim() ? newPassword.trim() : undefined,
@@ -471,15 +474,27 @@ export default function ProfilePage() {
             </label>
           </div>
 
-          <label className="field">
-            อีเมล
-            <input
-              type="email"
-              placeholder="name@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <label className="field">
+              อีเมล
+              <input
+                type="email"
+                placeholder="name@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              เบอร์โทรศัพท์
+              <input
+                type="tel"
+                placeholder="081-234-5678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+          </div>
 
           {/* เปลี่ยนรหัสผ่าน (Optional) */}
           <div style={{ marginTop: "14px", paddingTop: "14px", borderTop: "1px dashed var(--border)" }}>

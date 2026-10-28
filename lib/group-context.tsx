@@ -20,6 +20,7 @@ export interface Member {
   avatarColor: string;
   avatarUrl?: string;
   email?: string;
+  phone?: string;
   bankName?: string;
   bankAccountNumber?: string;
   promptpayNumber?: string;
@@ -233,6 +234,7 @@ interface GroupContextType {
     name: string;
     nickname?: string;
     email?: string;
+    phone?: string;
     password?: string;
     bankName?: string;
     bankAccountNumber?: string;
@@ -1270,6 +1272,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     name: string;
     nickname?: string;
     email?: string;
+    phone?: string;
     password?: string;
     bankName?: string;
     bankAccountNumber?: string;
@@ -1290,27 +1293,42 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       avatarColor: randomColor,
       avatarUrl: data.avatarUrl || undefined,
       email: data.email?.trim() || undefined,
+      phone: data.phone?.trim() || undefined,
       password: data.password || "password123",
       bankName: data.bankName?.trim() || undefined,
       bankAccountNumber: data.bankAccountNumber?.trim() || undefined,
-      promptpayNumber: data.promptpayNumber?.trim() || undefined,
+      promptpayNumber: data.promptpayNumber?.trim() || (data.phone?.trim() || undefined),
       qrCodeUrl: data.qrCodeUrl || undefined,
     };
-    setMembers((prev) => [...prev, newMember]);
+    const nextMembers = [...members, newMember];
+    setMembers(nextMembers);
     setCurrentMemberId(newMember.id);
     setIsAuthenticated(true);
     setIsDemo(false);
+
+    // ส่งสมาชิกใหม่ไปยังเซิร์ฟเวอร์ทันที
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        members: nextMembers.map(({ password: _, ...rest }) => rest),
+      }),
+    }).catch(() => {});
+
     return newMember;
   };
 
   const findMemberByIdentifier = (identifier: string): Member | undefined => {
     const clean = identifier.trim().toLowerCase();
+    const cleanDigits = clean.replace(/[^0-9]/g, "");
     if (!clean) return undefined;
     return members.find(
       (m) =>
         m.name.toLowerCase() === clean ||
         m.nickname?.toLowerCase() === clean ||
         m.email?.toLowerCase() === clean ||
+        (cleanDigits.length >= 9 && m.phone && m.phone.replace(/[^0-9]/g, "") === cleanDigits) ||
+        (cleanDigits.length >= 9 && m.promptpayNumber && m.promptpayNumber.replace(/[^0-9]/g, "") === cleanDigits) ||
         m.id.toLowerCase() === clean
     );
   };
@@ -1320,7 +1338,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     if (!found) {
       return {
         success: false,
-        message: "ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบชื่อเล่น อีเมล หรือชื่อผู้ใช้อีกครั้ง",
+        message: "ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบเบอร์โทรศัพท์ อีเมล หรือชื่อผู้ใช้อีกครั้ง",
       };
     }
 
@@ -1364,6 +1382,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
             avatarUrl: updates.avatarUrl !== undefined ? updates.avatarUrl : m.avatarUrl,
             avatarColor: updates.avatarColor !== undefined ? updates.avatarColor : m.avatarColor,
             email: updates.email !== undefined ? updates.email.trim() : m.email,
+            phone: updates.phone !== undefined ? updates.phone.trim() : m.phone,
             password: updates.password !== undefined ? updates.password : m.password,
             bankName: updates.bankName !== undefined ? updates.bankName.trim() : m.bankName,
             bankAccountNumber: updates.bankAccountNumber !== undefined ? updates.bankAccountNumber.trim() : m.bankAccountNumber,

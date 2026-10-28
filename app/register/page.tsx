@@ -13,7 +13,7 @@ function RegisterForm() {
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
-  const [email, setEmail] = useState("");
+  const [accountInput, setAccountInput] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -22,10 +22,10 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const qEmail = searchParams.get("email");
-    if (qEmail) {
-      setEmail(qEmail);
-      const defaultName = qEmail.split("@")[0];
+    const qAccount = searchParams.get("email") || searchParams.get("phone") || searchParams.get("account");
+    if (qAccount) {
+      setAccountInput(qAccount);
+      const defaultName = qAccount.includes("@") ? qAccount.split("@")[0] : qAccount;
       setName((prev) => prev || defaultName);
       setNickname((prev) => prev || defaultName);
     }
@@ -36,22 +36,41 @@ function RegisterForm() {
     setError("");
     setExistingUser(false);
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim() || (cleanEmail.includes("@") ? cleanEmail.split("@")[0] : cleanEmail);
+    const cleanInput = accountInput.trim();
+    const isEmail = cleanInput.includes("@");
+    const digits = cleanInput.replace(/[^0-9]/g, "");
+    const isPhone = !isEmail && digits.length >= 9 && digits.length <= 10;
 
-    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
-      setError("กรุณาระบุอีเมลที่ถูกต้อง (เช่น yourname@gmail.com)");
+    if (!isEmail && !isPhone) {
+      setError("กรุณาระบุเบอร์โทรศัพท์ (เช่น 081-234-5678) หรืออีเมลที่ถูกต้อง (เช่น yourname@gmail.com)");
       return;
     }
 
-    // ตรวจสอบอีเมลซ้ำในระบบ
+    if (isEmail && (!cleanInput.includes(".") || cleanInput.length < 5)) {
+      setError("กรุณาระบุรูปแบบอีเมลที่ถูกต้อง (เช่น yourname@gmail.com)");
+      return;
+    }
+
+    // ตรวจสอบเบอร์โทรหรืออีเมลซ้ำในระบบ
     const userPool = allMembers || [];
-    const duplicate = userPool.find(
-      (m) => m.email && m.email.toLowerCase() === cleanEmail
-    );
+    const duplicate = userPool.find((m) => {
+      if (isEmail) {
+        return m.email && m.email.toLowerCase() === cleanInput.toLowerCase();
+      } else {
+        return (
+          (m.phone && m.phone.replace(/[^0-9]/g, "") === digits) ||
+          (m.promptpayNumber && m.promptpayNumber.replace(/[^0-9]/g, "") === digits)
+        );
+      }
+    });
+
     if (duplicate) {
       setExistingUser(true);
-      setError(`อีเมล "${cleanEmail}" มีผู้ใช้งานในระบบแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลนี้`);
+      setError(
+        isEmail
+          ? `อีเมล "${cleanInput}" มีผู้ใช้งานในระบบแล้ว กรุณาเข้าสู่ระบบด้วยอีเมลนี้`
+          : `เบอร์โทรศัพท์ "${cleanInput}" มีผู้ใช้งานในระบบแล้ว กรุณาเข้าสู่ระบบด้วยเบอร์นี้`
+      );
       return;
     }
 
@@ -68,10 +87,15 @@ function RegisterForm() {
     setLoading(true);
 
     try {
+      const cleanName = name.trim() || (isEmail ? cleanInput.split("@")[0] : `ผู้ใช้ ${digits.slice(-4)}`);
+      const cleanNickname = nickname.trim() || (isEmail ? cleanName.split(" ")[0] : `คุณ${digits.slice(-4)}`);
+
       const newMember = registerMember({
         name: cleanName,
-        nickname: nickname.trim() || cleanName.split(" ")[0],
-        email: cleanEmail,
+        nickname: cleanNickname,
+        email: isEmail ? cleanInput.toLowerCase() : undefined,
+        phone: isPhone ? digits : undefined,
+        promptpayNumber: isPhone ? digits : undefined,
         password: password.trim(),
         role: "member",
       });
@@ -97,9 +121,9 @@ function RegisterForm() {
           <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "14px", marginTop: "6px" }}>
             ระบบจัดการค่าใช้จ่ายกลุ่ม (Group Expense Manager)
           </p>
-          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>สร้างบัญชีผู้ใช้ด้วยอีเมล</h2>
+          <h2 style={{ fontSize: "20px", margin: "14px 0 0" }}>สร้างบัญชีผู้ใช้ใหม่</h2>
           <p style={{ color: "var(--text-muted, #6a766e)", fontSize: "13px", margin: "6px 0 0" }}>
-            สมัครสมาชิกเพื่อเริ่มหารค่าใช้จ่ายและเคลียร์เงินในกลุ่ม
+            สมัครสมาชิกด้วยเบอร์โทรศัพท์หรืออีเมล เพื่อเริ่มหารค่าใช้จ่าย
           </p>
         </div>
 
@@ -142,7 +166,7 @@ function RegisterForm() {
                 {existingUser && (
                   <div style={{ marginTop: "8px" }}>
                     <Link
-                      href={`/login?email=${encodeURIComponent(email.trim().toLowerCase())}`}
+                      href={`/login?account=${encodeURIComponent(accountInput.trim())}`}
                       className="primary"
                       style={{
                         display: "inline-block",
@@ -152,7 +176,7 @@ function RegisterForm() {
                         textDecoration: "none",
                       }}
                     >
-                      ➔ ไปหน้าเข้าสู่ระบบด้วยอีเมลนี้
+                      ➔ ไปหน้าเข้าสู่ระบบทันที
                     </Link>
                   </div>
                 )}
@@ -163,20 +187,20 @@ function RegisterForm() {
 
         <form onSubmit={handleRegister}>
           <div style={{ marginBottom: "20px" }}>
-            {/* อีเมลจริง */}
+            {/* เบอร์โทรศัพท์ หรือ อีเมล */}
             <label className="field">
-              <span>อีเมลจริงสำหรับเข้าใช้งาน (Email) <span style={{ color: "#d9483b" }}>*</span></span>
+              <span>เบอร์โทรศัพท์ หรือ อีเมล <span style={{ color: "#d9483b" }}>*</span></span>
               <input
-                type="email"
-                placeholder="เช่น yourname@gmail.com หรือ somchai@example.com"
-                value={email}
+                type="text"
+                placeholder="เช่น 081-234-5678 หรือ yourname@gmail.com"
+                value={accountInput}
                 onChange={(e) => {
-                  setEmail(e.target.value);
+                  setAccountInput(e.target.value);
                   if (existingUser) setExistingUser(false);
                 }}
                 required
                 autoFocus
-                autoComplete="email"
+                autoComplete="username"
               />
             </label>
 
@@ -271,7 +295,7 @@ function RegisterForm() {
             className="link"
             style={{ fontWeight: 700 }}
           >
-            เข้าสู่ระบบด้วยอีเมลที่นี่ ➔
+            เข้าสู่ระบบที่นี่ ➔
           </Link>
         </div>
 

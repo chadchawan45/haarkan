@@ -25,7 +25,7 @@ export default function ForgotPasswordPage() {
     setError("");
 
     if (!identifier.trim()) {
-      setError("กรุณาระบุชื่อผู้ใช้ ชื่อเล่น หรืออีเมลของคุณ");
+      setError("กรุณาระบุเบอร์โทรศัพท์ อีเมล หรือชื่อผู้ใช้ของคุณ");
       return;
     }
 
@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
       setTargetMember(found);
       setStep("reset");
     } else {
-      setError("ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบชื่อเล่น อีเมล หรือสมัครสมาชิกใหม่");
+      setError("ไม่พบบัญชีผู้ใช้นี้ในระบบ กรุณาตรวจสอบเบอร์โทรศัพท์ อีเมล หรือสมัครสมาชิกใหม่");
     }
   };
 
@@ -118,14 +118,14 @@ export default function ForgotPasswordPage() {
         {step === "search" && (
           <form onSubmit={handleSearchAccount}>
             <p style={{ fontSize: "14px", color: "#55645c", lineHeight: 1.6, margin: "0 0 16px" }}>
-              กรุณาระบุ <strong>ชื่อเล่น</strong>, <strong>ชื่อ-นามสกุล</strong> หรือ <strong>อีเมล</strong> ที่ใช้ลงทะเบียน เพื่อค้นหาและยืนยันบัญชีของคุณ
+              กรุณาระบุ <strong>เบอร์โทรศัพท์</strong>, <strong>อีเมล</strong>, <strong>ชื่อเล่น</strong> หรือ <strong>ชื่อ-นามสกุล</strong> ที่ใช้ลงทะเบียน เพื่อค้นหาและยืนยันบัญชีของคุณ
             </p>
 
             <label className="field">
-              อีเมล หรือ ชื่อผู้ใช้ (Email / Username)
+              เบอร์โทรศัพท์, อีเมล หรือ ชื่อผู้ใช้
               <input
                 type="text"
-                placeholder="เช่น yourname@gmail.com หรือ karn@haarkan.local"
+                placeholder="เช่น 081-234-5678 หรือ yourname@gmail.com"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 autoFocus
@@ -191,7 +191,7 @@ export default function ForgotPasswordPage() {
                   </span>
                 </div>
                 <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
-                  อีเมล: {targetMember.email || "ไม่ได้ระบุอีเมล"}
+                  {targetMember.phone ? `เบอร์โทรศัพท์: ${targetMember.phone}` : targetMember.email ? `อีเมล: ${targetMember.email}` : "ผู้ใช้ในระบบ"}
                 </div>
               </div>
             </div>
