@@ -17,12 +17,39 @@ export interface SharedGroupData {
   expenses?: any[];
   payments?: any[];
 }
+export interface SystemAuditLogItem {
+  id: string;
+  actorId?: string;
+  actorName: string;
+  actorEmail?: string;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  details?: Record<string, any>;
+  status: "success" | "failure" | "denied";
+  createdAt: string;
+}
+
+export interface SiteSettingsData {
+  siteName: string;
+  tagline: string;
+  contactEmail: string;
+  maintenanceMode: boolean;
+  announcement?: {
+    active: boolean;
+    title: string;
+    content: string;
+    type: "info" | "warning" | "alert";
+  };
+}
 
 interface StoreData {
   groups: SharedGroupData[];
   expenses: any[];
   payments: any[];
   members: any[];
+  systemAuditLogs?: SystemAuditLogItem[];
+  siteSettings?: SiteSettingsData;
   lastUpdated: string;
 }
 
@@ -107,6 +134,29 @@ function readStore(): StoreData {
     expenses: [],
     payments: [],
     members: [],
+    systemAuditLogs: [
+      {
+        id: "log-init",
+        actorName: "System",
+        action: "system.init",
+        targetType: "system",
+        details: { message: "System initialized successfully" },
+        status: "success",
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    siteSettings: {
+      siteName: "หารกัน (HaarKan)",
+      tagline: "ระบบจัดการแชร์ค่าใช้จ่ายและเคลียร์เงินในกลุ่ม",
+      contactEmail: "golf2545mc@gmail.com",
+      maintenanceMode: false,
+      announcement: {
+        active: false,
+        title: "",
+        content: "",
+        type: "info",
+      },
+    },
     lastUpdated: new Date().toISOString(),
   };
 
@@ -327,5 +377,247 @@ export function joinGroupByCodeOnServer(code: string, member?: any): {
     expenses,
     payments,
     members: store.members,
+  };
+}
+
+// ==========================================
+// ADMIN DASHBOARD HELPER FUNCTIONS
+// ==========================================
+
+export function addSystemAuditLog(
+  log: Omit<SystemAuditLogItem, "id" | "createdAt">
+): SystemAuditLogItem {
+  const store = readStore();
+  if (!store.systemAuditLogs) store.systemAuditLogs = [];
+
+  const newLog: SystemAuditLogItem = {
+    ...log,
+    id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    createdAt: new Date().toISOString(),
+  };
+
+  store.systemAuditLogs.unshift(newLog);
+  // Cap at 1,000 logs to prevent unbounded file growth
+  if (store.systemAuditLogs.length > 1000) {
+    store.systemAuditLogs = store.systemAuditLogs.slice(0, 1000);
+  }
+
+  writeStore(store);
+  return newLog;
+}
+
+export function getSystemAuditLogs(limit = 100): SystemAuditLogItem[] {
+  const store = readStore();
+  return (store.systemAuditLogs || []).slice(0, limit);
+}
+
+export function getSiteSettings(): SiteSettingsData {
+  const store = readStore();
+  return (
+    store.siteSettings || {
+      siteName: "หารกัน (HaarKan)",
+      tagline: "ระบบจัดการแชร์ค่าใช้จ่ายและเคลียร์เงินในกลุ่ม",
+      contactEmail: "golf2545mc@gmail.com",
+      maintenanceMode: false,
+      announcement: {
+        active: false,
+        title: "",
+        content: "",
+        type: "info",
+      },
+    }
+  );
+}
+
+export function updateSiteSettings(updates: Partial<SiteSettingsData>): SiteSettingsData {
+  const store = readStore();
+  const current = getSiteSettings();
+  const updated: SiteSettingsData = {
+    ...current,
+    ...updates,
+    announcement: updates.announcement ? { ...current.announcement, ...updates.announcement } : current.announcement,
+  };
+  store.siteSettings = updated;
+  writeStore(store);
+  return updated;
+}
+
+export function getAllUsersForAdmin(): any[] {
+  const store = readStore();
+  const members = store.members || [];
+  const groups = store.groups || [];
+  const expenses = store.expenses || [];
+
+  return members.map((m) => {
+    // Determine system role
+    let systemRole = m.systemRole;
+    if (!systemRole) {
+      if (m.id === "mem-golf" || m.email?.toLowerCase() === "golf2545mc@gmail.com") {
+        systemRole = "super_admin";
+      } else {
+        systemRole = "member";
+      }
+    }
+
+    // Calculate user's group involvement
+    const userGroups = groups.filter((g) => {
+      if (g.creatorMemberId === m.id) return true;
+      if (Array.isArray(g.memberIds) && g.memberIds.includes(m.id)) return true;
+      if (Array.isArray(g.members) && g.members.some((gm: any) => gm.id === m.id)) return true;
+      return false;
+    });
+
+    // Calculate total expenses paid
+    const userExpenses = expenses.filter((e) => e.createdByMemberId === m.id);
+    const totalSpentSatang = userExpenses.reduce((sum, e) => sum + (e.totalAmountSatang || 0), 0);
+
+    return {
+      id: m.id,
+      name: m.name,
+      nickname: m.nickname,
+      email: m.email || null,
+      phone: m.phone || null,
+      systemRole,
+      status: m.status || "active",
+      avatarColor: m.avatarColor || "#1f6f53",
+      avatarUrl: m.avatarUrl || null,
+      bankName: m.bankName || null,
+      bankAccountNumber: m.bankAccountNumber || null,
+      promptpayNumber: m.promptpayNumber || null,
+      groupsCount: userGroups.length,
+      expensesCount: userExpenses.length,
+      totalSpentSatang,
+      createdAt: m.createdAt || "2026-01-01T00:00:00.000Z",
+    };
+  });
+}
+
+export function updateUserByAdmin(
+  userId: string,
+  updates: {
+    systemRole?: string;
+    status?: string;
+    name?: string;
+    email?: string;
+    phone?: string;
+  }
+): { success: boolean; message: string; user?: any } {
+  const store = readStore();
+  const idx = (store.members || []).findIndex((m) => m.id === userId);
+  if (idx < 0) {
+    return { success: false, message: "ไม่พบผู้ใช้ที่ระบุ" };
+  }
+
+  const current = store.members[idx];
+
+  // Prevent demoting golf2545mc if they are the primary super admin
+  if (
+    (current.id === "mem-golf" || current.email?.toLowerCase() === "golf2545mc@gmail.com") &&
+    updates.systemRole &&
+    updates.systemRole !== "super_admin"
+  ) {
+    return { success: false, message: "ไม่สามารถลดระดับสิทธิ์ของ Super Admin หลักได้" };
+  }
+
+  const updatedUser = {
+    ...current,
+    ...updates,
+  };
+
+  store.members[idx] = updatedUser;
+
+  // Also sync in groups
+  for (const g of store.groups || []) {
+    if (Array.isArray(g.members)) {
+      const gIdx = g.members.findIndex((gm: any) => gm.id === userId);
+      if (gIdx >= 0) {
+        g.members[gIdx] = { ...g.members[gIdx], ...updates };
+      }
+    }
+  }
+
+  writeStore(store);
+  return { success: true, message: "อัปเดตข้อมูลผู้ใช้เรียบร้อยแล้ว", user: updatedUser };
+}
+
+export function deleteGroupByAdmin(
+  groupId: string,
+  reason?: string
+): { success: boolean; message: string } {
+  const store = readStore();
+  const grpIdx = (store.groups || []).findIndex((g) => g.id === groupId);
+  if (grpIdx < 0) {
+    return { success: false, message: "ไม่พบกลุ่มที่ต้องการลบ" };
+  }
+
+  const targetGroup = store.groups[grpIdx];
+  store.groups.splice(grpIdx, 1);
+  store.expenses = (store.expenses || []).filter((e) => e.groupId !== groupId);
+  store.payments = (store.payments || []).filter((p) => p.groupId !== groupId);
+
+  writeStore(store);
+  return {
+    success: true,
+    message: `ลบกลุ่ม "${targetGroup.name}" สำเร็จ${reason ? ` (เหตุผล: ${reason})` : ""}`,
+  };
+}
+
+export function getAdminOverviewStats(): {
+  totalMembers: number;
+  activeMembers: number;
+  suspendedMembers: number;
+  totalGroups: number;
+  totalExpenses: number;
+  totalExpenseAmountSatang: number;
+  totalPayments: number;
+  totalConfirmedPaymentAmountSatang: number;
+  recentExpenses: any[];
+  recentAuditLogs: SystemAuditLogItem[];
+  recentMembers: any[];
+} {
+  const store = readStore();
+  const members = store.members || [];
+  const groups = store.groups || [];
+  const expenses = store.expenses || [];
+  const payments = store.payments || [];
+
+  const activeMembers = members.filter((m) => m.status !== "suspended" && m.status !== "removed").length;
+  const suspendedMembers = members.filter((m) => m.status === "suspended").length;
+
+  const totalExpenseAmountSatang = expenses.reduce((sum, e) => sum + (e.totalAmountSatang || 0), 0);
+  const confirmedPayments = payments.filter((p) => p.status === "confirmed");
+  const totalConfirmedPaymentAmountSatang = confirmedPayments.reduce(
+    (sum, p) => sum + (p.amountSatang || 0),
+    0
+  );
+
+  const recentExpenses = [...expenses]
+    .sort((a, b) => new Date(b.createdAt || b.expenseDate).getTime() - new Date(a.createdAt || a.expenseDate).getTime())
+    .slice(0, 6);
+
+  const recentMembers = [...members]
+    .slice(-6)
+    .reverse()
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email || m.phone || "ไม่ระบุ",
+      systemRole: m.systemRole || (m.id === "mem-golf" ? "super_admin" : "member"),
+      status: m.status || "active",
+      createdAt: m.createdAt || "2026-01-01T00:00:00.000Z",
+    }));
+
+  return {
+    totalMembers: members.length,
+    activeMembers,
+    suspendedMembers,
+    totalGroups: groups.length,
+    totalExpenses: expenses.length,
+    totalExpenseAmountSatang,
+    totalPayments: payments.length,
+    totalConfirmedPaymentAmountSatang,
+    recentExpenses,
+    recentAuditLogs: (store.systemAuditLogs || []).slice(0, 8),
+    recentMembers,
   };
 }

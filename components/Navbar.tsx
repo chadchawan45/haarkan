@@ -27,6 +27,10 @@ export function Navbar() {
 
   const [showNotifs, setShowNotifs] = useState(false);
 
+  const isSystemAdmin =
+    currentMember?.id === "mem-golf" ||
+    currentMember?.email?.toLowerCase() === "golf2545mc@gmail.com";
+
   const navItems = isAuthenticated
     ? isDemo
       ? [
@@ -34,12 +38,14 @@ export function Navbar() {
           { label: "รายจ่าย (เปิดใช้)", href: "/expenses" },
           { label: "🔒 เคลียร์เงิน", href: "/balances" },
           ...(isGroupCreator ? [{ label: "🔒 ตั้งค่ากลุ่ม", href: "/settings" }] : []),
+          ...(isSystemAdmin ? [{ label: "🛡️ หลังบ้าน", href: "/admin" }] : []),
         ]
       : [
           { label: "หน้าหลัก", href: "/" },
           { label: "รายจ่าย", href: "/expenses" },
           { label: "เคลียร์เงิน & ชำระหนี้", href: "/balances" },
           ...(isGroupCreator ? [{ label: "⚙️ ตั้งค่ากลุ่ม", href: "/settings" }] : []),
+          ...(isSystemAdmin ? [{ label: "🛡️ หลังบ้าน", href: "/admin" }] : []),
         ]
     : [
         { label: "หน้าหลัก", href: "/" },
