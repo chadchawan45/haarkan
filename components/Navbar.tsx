@@ -23,7 +23,6 @@ export function Navbar() {
     isAuthenticated,
     isDemo,
     logout,
-    setJoinModalOpen,
   } = useGroup();
 
   const [showNotifs, setShowNotifs] = useState(false);
@@ -77,58 +76,17 @@ export function Navbar() {
         </div>
 
         <div className="top-right">
-          {/* ปุ่มเข้าร่วมกลุ่มด้วยรหัส (Join Group) */}
-          <button
-            type="button"
-            className="secondary join-group-header-btn"
-            onClick={() => setJoinModalOpen(true)}
-            style={{
-              padding: "6px 12px",
-              fontSize: "12px",
-              fontWeight: 700,
-              borderRadius: "10px",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "4px",
-              background: "rgba(31, 111, 83, 0.08)",
-              border: "1px solid rgba(31, 111, 83, 0.3)",
-              color: "#1f6f53",
-              cursor: "pointer",
-            }}
-            title="กรอกรหัส 6 หลักเพื่อเข้าร่วมกลุ่ม"
-          >
-            <span>🔑</span>
-            <span className="join-group-text">เข้าร่วมกลุ่ม</span>
-          </button>
-
           {/* ปุ่มสลับธีมมืด / ธีมสว่าง */}
           <ThemeToggle />
 
           {/* โปรไฟล์ & เข้าสู่ระบบ / ออกจากระบบ */}
           {isAuthenticated ? (
             <>
-              <Link
-                href="/profile"
-                className="secondary desktop-only"
-                style={{
-                  padding: "6px 10px",
-                  fontSize: "12px",
-                  borderRadius: "10px",
-                  textDecoration: "none",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-                title={isDemo ? "ข้อมูลโปรไฟล์ (ล็อกในโหมด Demo)" : "แก้ไขข้อมูลส่วนตัวและบัญชีรับเงิน"}
-              >
-                {isDemo ? "🔒 โปรไฟล์" : "👤 โปรไฟล์"}
-              </Link>
-
               <button
                 className="secondary desktop-only"
                 onClick={logout}
                 style={{
-                  padding: "6px 10px",
+                  padding: "6px 12px",
                   fontSize: "12px",
                   color: "#777",
                   borderRadius: "10px",
@@ -216,8 +174,11 @@ export function Navbar() {
                   alignItems: "center",
                   justifyContent: "center",
                   padding: 0,
+                  cursor: "pointer",
+                  borderRadius: "50%",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
                 }}
-                title={`โปรไฟล์ของคุณ: ${currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name}`}
+                title={`โปรไฟล์: ${currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} (คลิกเพื่อแก้ไขโปรไฟล์)`}
               >
                 {currentMember.avatarUrl ? (
                   <img
