@@ -44,6 +44,7 @@ function DashboardContent() {
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<GroupSettings | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [membersModalOpen, setMembersModalOpen] = useState(false);
 
   const handleOpenDeleteModal = (targetGroup: GroupSettings) => {
     if (isDemo) {
@@ -369,17 +370,41 @@ function DashboardContent() {
                 )}
               </div>
 
-              <h2
-                style={{
-                  margin: "0 0 6px",
-                  fontSize: "26px",
-                  fontWeight: 800,
-                  letterSpacing: "-0.5px",
-                  color: "#fff",
-                }}
-              >
-                {group.name}
-              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", margin: "0 0 6px" }}>
+                <button
+                  type="button"
+                  onClick={() => setMembersModalOpen(true)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    margin: 0,
+                    fontSize: "26px",
+                    fontWeight: 800,
+                    letterSpacing: "-0.5px",
+                    color: "#fff",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    textAlign: "left",
+                  }}
+                  title="คลิกที่ชื่อกลุ่มเพื่อดูรายชื่อสมาชิกในกลุ่มนี้"
+                >
+                  <span>{group.name}</span>
+                  <span
+                    style={{
+                      fontSize: "12px",
+                      background: "rgba(255,255,255,0.25)",
+                      padding: "2px 8px",
+                      borderRadius: "99px",
+                      fontWeight: 600,
+                    }}
+                  >
+                    👥 ดูสมาชิก
+                  </span>
+                </button>
+              </div>
 
               {group.description && (
                 <p
@@ -461,7 +486,25 @@ function DashboardContent() {
                   </button>
                 </div>
 
-                <span style={{ opacity: 0.9 }}>👥 สมาชิก {members.length} คน</span>
+                <button
+                  type="button"
+                  onClick={() => setMembersModalOpen(true)}
+                  style={{
+                    background: "rgba(0,0,0,0.25)",
+                    border: "none",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "4px 10px",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                  }}
+                  title="คลิกเพื่อดูรายชื่อสมาชิกในกลุ่มนี้"
+                >
+                  <span>👥 สมาชิก {members.length} คน</span>
+                </button>
                 <span style={{ opacity: 0.9 }}>
                   👑 {isGroupCreator ? "คุณคือผู้สร้างกลุ่ม" : "Admin"}
                 </span>
@@ -722,6 +765,195 @@ function DashboardContent() {
                 }}
               >
                 ยืนยันลบกลุ่ม
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Members Modal (แสดงรายชื่อสมาชิกเมื่อกดที่ชื่อกลุ่ม) */}
+      {membersModalOpen && (
+        <div
+          className="modal-overlay"
+          onClick={() => setMembersModalOpen(false)}
+          style={{ zIndex: 1000 }}
+        >
+          <div
+            className="modal-card"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: "500px",
+              width: "92%",
+              background: "var(--card-bg, #ffffff)",
+              border: "1px solid var(--border, #e5e7eb)",
+              borderRadius: "18px",
+              padding: "24px",
+              color: "var(--text-main, #1e293b)",
+              boxShadow: "0 20px 45px rgba(0,0,0,0.25)",
+              position: "relative",
+              maxHeight: "85vh",
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px" }}>
+              <div>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", color: "var(--primary, #1f6f53)", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>
+                  <span>👥</span> รายชื่อสมาชิกในกลุ่ม
+                </div>
+                <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 800 }}>
+                  {group.name}
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted, #6a766e)" }}>
+                  สมาชิกทั้งหมด {members.length} คน · รหัสกลุ่ม: <strong style={{ fontFamily: "monospace", color: "var(--primary, #1f6f53)" }}>{group.code}</strong>
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMembersModalOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "20px",
+                  color: "var(--text-muted, #888)",
+                  cursor: "pointer",
+                  padding: "4px",
+                  lineHeight: 1,
+                }}
+                title="ปิด"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Members List Scrollable */}
+            <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: "10px", paddingRight: "4px", marginBottom: "16px" }}>
+              {members.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "30px 10px", color: "var(--text-muted, #888)", fontSize: "14px" }}>
+                  ยังไม่มีสมาชิกในกลุ่มนี้
+                </div>
+              ) : (
+                members.map((m) => {
+                  const cleanName = m.name.replace(/\(คุณ\)/g, "").trim();
+                  const isCurrent = m.id === currentMemberId;
+                  const isCreator = m.id === group.creatorMemberId;
+
+                  return (
+                    <div
+                      key={m.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "12px 14px",
+                        borderRadius: "12px",
+                        background: isCurrent ? "rgba(31, 111, 83, 0.05)" : "var(--surface-input, rgba(125, 125, 125, 0.04))",
+                        border: isCurrent ? "1.5px solid rgba(31, 111, 83, 0.3)" : "1px solid var(--border, #e5e7eb)",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "40px",
+                            borderRadius: "12px",
+                            background: m.avatarColor,
+                            color: "#fff",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "15px",
+                            fontWeight: 700,
+                            flexShrink: 0,
+                            overflow: "hidden",
+                          }}
+                        >
+                          {m.avatarUrl ? (
+                            <img
+                              src={m.avatarUrl}
+                              alt={cleanName}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            />
+                          ) : (
+                            cleanName.slice(0, 1)
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-main, #1e293b)", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span>{cleanName}</span>
+                            {m.nickname && cleanName !== m.nickname && (
+                              <span style={{ fontSize: "12px", fontWeight: 500, color: "var(--text-muted, #6a766e)" }}>
+                                ({m.nickname})
+                              </span>
+                            )}
+                            {isCurrent && (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  background: "rgba(31, 111, 83, 0.12)",
+                                  color: "var(--primary, #1f6f53)",
+                                  padding: "1px 6px",
+                                  borderRadius: "99px",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                คุณ
+                              </span>
+                            )}
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "11px", marginTop: "3px", color: "var(--text-muted, #6a766e)", flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 600, color: isCreator || m.role === "admin" ? "#d97706" : "inherit" }}>
+                              {isCreator ? "👑 ผู้สร้างกลุ่ม" : m.role === "admin" ? "⭐ Admin" : "👤 สมาชิก"}
+                            </span>
+                            {m.promptpayNumber && (
+                              <>
+                                <span>·</span>
+                                <span>พร้อมเพย์: {m.promptpayNumber}</span>
+                              </>
+                            )}
+                            {m.bankName && m.bankAccountNumber && (
+                              <>
+                                <span>·</span>
+                                <span>{m.bankName} {m.bankAccountNumber}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px", borderTop: "1px solid var(--border, #e5e7eb)", paddingTop: "14px" }}>
+              {isGroupCreator ? (
+                <Link
+                  href="/settings"
+                  className="secondary"
+                  style={{
+                    fontSize: "13px",
+                    padding: "8px 14px",
+                    borderRadius: "10px",
+                    textDecoration: "none",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                  }}
+                >
+                  ⚙️ จัดการสมาชิกในกลุ่ม
+                </Link>
+              ) : <span />}
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setMembersModalOpen(false)}
+                style={{ padding: "8px 20px", fontSize: "13px", borderRadius: "10px" }}
+              >
+                ปิด
               </button>
             </div>
           </div>

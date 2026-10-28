@@ -186,6 +186,7 @@ const initialNotifications: NotificationItem[] = [];
 interface GroupContextType {
   group: GroupSettings;
   members: Member[];
+  allMembers: Member[];
   expenses: ExpenseRecord[];
   payments: PaymentRecord[];
   notifications: NotificationItem[];
@@ -508,6 +509,21 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   }, [groups, expenses, payments, members]);
 
 
+  // สมาชิกเฉพาะของกลุ่มที่กำลังเปิดใช้งาน (Current Group Members)
+  const currentGroupMembers = useMemo(() => {
+    if (!group) return [];
+    if (Array.isArray(group.memberIds) && group.memberIds.length > 0) {
+      const idSet = new Set(group.memberIds);
+      if (group.creatorMemberId) idSet.add(group.creatorMemberId);
+      return members.filter((m) => idSet.has(m.id));
+    }
+    if (group.creatorMemberId) {
+      const creator = members.find((m) => m.id === group.creatorMemberId);
+      return creator ? [creator] : members.slice(0, 1);
+    }
+    return members;
+  }, [group, members]);
+
   const currentMember = useMemo(
     () => members.find((m) => m.id === currentMemberId) ?? members[0],
     [members, currentMemberId]
@@ -519,7 +535,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     () => members.find((m) => m.id === groupCreatorId),
     [members, groupCreatorId]
   );
-  const activeMembers = useMemo(() => members.filter((m) => m.status === "active"), [members]);
+  const activeMembers = useMemo(() => currentGroupMembers.filter((m) => m.status === "active"), [currentGroupMembers]);
 
   // คำนวณรายการเฉพาะกลุ่มปัจจุบัน
   const currentGroupExpenses = useMemo(
@@ -1021,7 +1037,27 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       status: "active",
       avatarColor: randomColor,
     };
-    setMembers((prev) => [...prev, newMember]);
+    const nextMembers = [...members, newMember];
+    setMembers(nextMembers);
+
+    // เพิ่มสมาชิกใหม่เข้ากลุ่มปัจจุบันทันที
+    const updatedGroups = groups.map((g) => {
+      if (g.id === group.id) {
+        const nextIds = Array.from(new Set([...(g.memberIds || []), newMember.id]));
+        return { ...g, memberIds: nextIds };
+      }
+      return g;
+    });
+    setGroups(updatedGroups);
+
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groups: updatedGroups,
+        members: nextMembers.map(({ password: _, ...rest }) => rest),
+      }),
+    }).catch(() => {});
   };
 
   const toggleMemberStatus = (memberId: string) => {
@@ -1048,7 +1084,31 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    setMembers((prev) => prev.filter((m) => m.id !== memberId));
+    // 1. นำออกจาก memberIds ของกลุ่มปัจจุบัน
+    const updatedGroups = groups.map((g) => {
+      if (g.id === group.id) {
+        const nextIds = (g.memberIds || []).filter((id) => id !== memberId);
+        return { ...g, memberIds: nextIds };
+      }
+      return g;
+    });
+    setGroups(updatedGroups);
+
+    // 2. นำออกจาก members ในเครื่อง
+    const remainingMembers = members.filter((m) => m.id !== memberId);
+    setMembers(remainingMembers);
+
+    // 3. ส่งข้อมูลการลบไปยังเซิร์ฟเวอร์ทันทีเพื่ออัปเดต store
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groups: updatedGroups,
+        deletedMemberId: memberId,
+        groupId: group.id,
+        members: remainingMembers.map(({ password: _, ...rest }) => rest),
+      }),
+    }).catch(() => {});
 
     setNotifications((prev) => [
       {
@@ -1316,7 +1376,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     <GroupContext.Provider
       value={{
         group,
-        members,
+        members: currentGroupMembers,
+        allMembers: members,
         expenses,
         payments,
         notifications,

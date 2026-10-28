@@ -12,6 +12,7 @@ export interface SharedGroupData {
   code: string;
   bannerGradient?: string;
   createdAt?: string;
+  memberIds?: string[];
   members?: any[];
   expenses?: any[];
   payments?: any[];
@@ -179,8 +180,26 @@ export function syncClientData(payload: {
   expenses?: any[];
   payments?: any[];
   members?: any[];
+  deletedMemberId?: string;
+  groupId?: string;
 }): StoreData {
   const store = readStore();
+
+  // จัดการการลบสมาชิกออกจากกลุ่มและ store
+  if (payload.deletedMemberId) {
+    if (payload.groupId) {
+      const g = store.groups.find((grp) => grp.id === payload.groupId);
+      if (g) {
+        if (g.memberIds) {
+          g.memberIds = g.memberIds.filter((id: string) => id !== payload.deletedMemberId);
+        }
+        if (g.members) {
+          g.members = g.members.filter((m: any) => m.id !== payload.deletedMemberId);
+        }
+      }
+    }
+    store.members = (store.members || []).filter((m) => m.id !== payload.deletedMemberId);
+  }
 
   if (payload.groups && Array.isArray(payload.groups)) {
     for (const g of payload.groups) {

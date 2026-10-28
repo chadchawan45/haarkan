@@ -9,7 +9,7 @@ import { PasswordInput } from "@/components/PasswordInput";
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { members, registerMember, login } = useGroup();
+  const { allMembers, registerMember, login } = useGroup();
 
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
@@ -45,7 +45,8 @@ function RegisterForm() {
     }
 
     // ตรวจสอบอีเมลซ้ำในระบบ
-    const duplicate = members.find(
+    const userPool = allMembers || [];
+    const duplicate = userPool.find(
       (m) => m.email && m.email.toLowerCase() === cleanEmail
     );
     if (duplicate) {
