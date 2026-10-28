@@ -9,39 +9,68 @@ export default function AcceptInvitePage() {
   const params = useParams();
   const token = params?.token as string;
   const router = useRouter();
-  const { group, groups, joinGroupByCode, members, currentMember, isAuthenticated, logout } = useGroup();
+  const { group, groups, switchGroup, joinGroupByCode, members, currentMember, isAuthenticated, logout } = useGroup();
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [remoteGroup, setRemoteGroup] = useState<any>(null);
+  const [fetchingGroup, setFetchingGroup] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  const cleanToken = (token || "").trim().toUpperCase();
 
   React.useEffect(() => {
-    if (token) {
-      fetch(`/api/groups/code/${token}`)
+    if (cleanToken) {
+      setFetchingGroup(true);
+      setNotFound(false);
+      fetch(`/api/groups/code/${cleanToken}`)
         .then((res) => res.json())
         .then((data) => {
           if (data?.success && data?.group) {
             setRemoteGroup(data.group);
+          } else {
+            // ลองหาใน groups ภายในเครื่อง
+            const localFound = groups.find((g) => g.code?.toUpperCase() === cleanToken);
+            if (!localFound) {
+              setNotFound(true);
+            }
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          const localFound = groups.find((g) => g.code?.toUpperCase() === cleanToken);
+          if (!localFound) {
+            setNotFound(true);
+          }
+        })
+        .finally(() => {
+          setFetchingGroup(false);
+        });
+    } else {
+      setFetchingGroup(false);
+      setNotFound(true);
     }
-  }, [token]);
+  }, [cleanToken, groups]);
 
-  // หาก token ตรงกับรหัสกลุ่ม 6 ตัวในระบบ ให้ใช้ข้อมูลกลุ่มนั้น
+  // หาก token ตรงกับรหัสกลุ่มในระบบ หรือได้จากเซิร์ฟเวอร์
   const targetGroup =
-    groups.find((g) => g.code?.toUpperCase() === token?.toUpperCase()) ||
-    remoteGroup ||
-    group;
+    groups.find((g) => g.code?.toUpperCase() === cleanToken) ||
+    remoteGroup;
 
-  // ตรวจสอบว่าผู้ใช้กำลังล็อกอินและเป็นสมาชิกของกลุ่มนี้อยู่แล้วหรือไม่
-  const isAlreadyMember = isAuthenticated && members.some(
-    (m) => m.id === currentMember?.id && m.status === "active"
+  // ตรวจสอบว่าผู้ใช้กำลังล็อกอินและมีกลุ่มนี้ในรายการกลุ่มแล้วหรือไม่
+  const isAlreadyMember = Boolean(
+    isAuthenticated &&
+    targetGroup &&
+    groups.some(
+      (g) =>
+        g.id === targetGroup.id ||
+        (g.code && targetGroup.code && g.code.toUpperCase() === targetGroup.code.toUpperCase())
+    )
   );
 
   const handleJoinGroup = async () => {
     setLoading(true);
-    const res = await joinGroupByCode(token || targetGroup.code);
+    const codeToUse = cleanToken || targetGroup?.code;
+    const res = await joinGroupByCode(codeToUse);
     if (res.success) {
       setSuccess(true);
       setTimeout(() => {
@@ -56,95 +85,136 @@ export default function AcceptInvitePage() {
   return (
     <main className="shell">
       <div style={{ maxWidth: "480px", margin: "40px auto" }} className="card">
-        {/* ส่วนหัวแสดงข้อมูลกลุ่ม */}
-        <div style={{ textAlign: "center", marginBottom: "24px" }}>
-          <Link href="/" className="brand" style={{ justifyContent: "center", fontSize: "32px" }}>
-            หาร<i>กัน</i>
-          </Link>
-          <div
-            style={{
-              display: "inline-block",
-              background: "rgba(31, 111, 83, 0.1)",
-              color: "#1f6f53",
-              padding: "4px 14px",
-              borderRadius: "99px",
-              fontSize: "12px",
-              fontWeight: 600,
-              marginTop: "12px",
-            }}
-          >
-            ✉️ คำเชิญเข้าร่วมกลุ่ม
-          </div>
-          <h2 style={{ margin: "12px 0 6px", fontSize: "22px" }}>{targetGroup.name}</h2>
-          {targetGroup.description && (
-            <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", margin: "0 0 8px" }}>
-              {targetGroup.description}
+        {fetchingGroup ? (
+          <div style={{ textAlign: "center", padding: "40px 20px" }}>
+            <div style={{ fontSize: "36px", marginBottom: "12px" }}>⏳</div>
+            <h3 style={{ margin: "0 0 6px" }}>กำลังค้นหากลุ่ม...</h3>
+            <p style={{ color: "var(--text-muted, #666)", fontSize: "14px" }}>
+              กำลังตรวจสอบรหัสห้อง &quot;{cleanToken}&quot;
             </p>
-          )}
-        </div>
-
-        {/* กรณีที่ 1: ยังไม่ได้เข้าสู่ระบบ (ต้องสมัครสมาชิกหรือเข้าสู่ระบบก่อนเท่านั้น) */}
-        {!isAuthenticated && (
-          <div>
-            <div
-              style={{
-                background: "#fef3c7",
-                border: "1px solid #fde68a",
-                borderRadius: "12px",
-                padding: "16px",
-                marginBottom: "20px",
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "12px",
-              }}
-            >
-              <span style={{ fontSize: "24px", lineHeight: 1 }}>🔒</span>
-              <div style={{ fontSize: "13px", color: "#92400e", lineHeight: 1.5 }}>
-                <strong style={{ fontSize: "14px", display: "block", marginBottom: "3px" }}>
-                  ต้องมีบัญชีผู้ใช้ก่อนเข้าร่วมกลุ่ม
-                </strong>
-                คุณต้องสมัครสมาชิกใหม่หรือเข้าสู่ระบบด้วยอีเมลของคุณก่อน จึงจะสามารถตอบรับคำเชิญและเริ่มแชร์ค่าใช้จ่ายในกลุ่มนี้ได้
+          </div>
+        ) : notFound || !targetGroup ? (
+          <div style={{ textAlign: "center", padding: "30px 16px" }}>
+            <div style={{ fontSize: "48px", marginBottom: "12px" }}>🔍</div>
+            <h2 style={{ color: "#dc2626", margin: "0 0 8px", fontSize: "20px" }}>
+              ไม่พบกลุ่มที่ตรงกับรหัส &quot;{cleanToken}&quot;
+            </h2>
+            <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", lineHeight: 1.6, margin: "0 0 24px" }}>
+              กรุณาตรวจสอบรหัสห้อง 6 ตัวอักษรจากผู้สร้างกลุ่มอีกครั้ง หรือสอบถามลิงก์ใหม่จากเพื่อน
+            </p>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <Link href="/" className="primary" style={{ padding: "10px 18px", textDecoration: "none" }}>
+                ← กลับหน้าหลัก
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* ส่วนหัวแสดงข้อมูลกลุ่ม */}
+            <div style={{ textAlign: "center", marginBottom: "24px" }}>
+              <Link href="/" className="brand" style={{ justifyContent: "center", fontSize: "32px" }}>
+                หาร<i>กัน</i>
+              </Link>
+              <div
+                style={{
+                  display: "inline-block",
+                  background: "rgba(31, 111, 83, 0.1)",
+                  color: "#1f6f53",
+                  padding: "4px 14px",
+                  borderRadius: "99px",
+                  fontSize: "12px",
+                  fontWeight: 600,
+                  marginTop: "12px",
+                }}
+              >
+                ✉️ คำเชิญเข้าร่วมกลุ่ม
+              </div>
+              <h2 style={{ margin: "12px 0 6px", fontSize: "22px" }}>{targetGroup.name}</h2>
+              {targetGroup.description && (
+                <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", margin: "0 0 8px" }}>
+                  {targetGroup.description}
+                </p>
+              )}
+              <div
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: "15px",
+                  fontWeight: 700,
+                  color: "#166534",
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  padding: "4px 10px",
+                  borderRadius: "8px",
+                  display: "inline-block",
+                  marginTop: "6px",
+                }}
+              >
+                🏷️ รหัสห้อง: {targetGroup.code || cleanToken}
               </div>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <Link
-                href={`/register?redirect=${encodeURIComponent(`/invites/${token}`)}`}
-                className="primary full-btn"
-                style={{
-                  textAlign: "center",
-                  padding: "12px",
-                  fontSize: "15px",
-                  fontWeight: 700,
-                  textDecoration: "none",
-                }}
-              >
-                📝 สมัครสมาชิกใหม่เพื่อเข้ากลุ่ม
-              </Link>
+            {/* กรณีที่ 1: ยังไม่ได้เข้าสู่ระบบ (ต้องสมัครสมาชิกหรือเข้าสู่ระบบก่อนเท่านั้น) */}
+            {!isAuthenticated && (
+              <div>
+                <div
+                  style={{
+                    background: "#fef3c7",
+                    border: "1px solid #fde68a",
+                    borderRadius: "12px",
+                    padding: "16px",
+                    marginBottom: "20px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "24px", lineHeight: 1 }}>🔒</span>
+                  <div style={{ fontSize: "13px", color: "#92400e", lineHeight: 1.5 }}>
+                    <strong style={{ fontSize: "14px", display: "block", marginBottom: "3px" }}>
+                      ต้องมีบัญชีผู้ใช้ก่อนเข้าร่วมกลุ่ม
+                    </strong>
+                    คุณต้องสมัครสมาชิกใหม่หรือเข้าสู่ระบบด้วยอีเมลของคุณก่อน จึงจะสามารถตอบรับคำเชิญและเริ่มแชร์ค่าใช้จ่ายในกลุ่มนี้ได้
+                  </div>
+                </div>
 
-              <Link
-                href={`/login?redirect=${encodeURIComponent(`/invites/${token}`)}`}
-                className="secondary full-btn"
-                style={{
-                  textAlign: "center",
-                  padding: "11px",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  textDecoration: "none",
-                }}
-              >
-                🔑 มีบัญชีอยู่แล้ว? เข้าสู่ระบบด้วยอีเมล
-              </Link>
-            </div>
-          </div>
-        )}
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <Link
+                    href={`/register?redirect=${encodeURIComponent(`/invites/${cleanToken}`)}`}
+                    className="primary full-btn"
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      fontSize: "15px",
+                      fontWeight: 700,
+                      textDecoration: "none",
+                    }}
+                  >
+                    📝 สมัครสมาชิกใหม่เพื่อเข้ากลุ่ม
+                  </Link>
+
+                  <Link
+                    href={`/login?redirect=${encodeURIComponent(`/invites/${cleanToken}`)}`}
+                    className="secondary full-btn"
+                    style={{
+                      textAlign: "center",
+                      padding: "11px",
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      textDecoration: "none",
+                    }}
+                  >
+                    🔑 มีบัญชีอยู่แล้ว? เข้าสู่ระบบด้วยอีเมล
+                  </Link>
+                </div>
+              </div>
+            )}
 
         {/* กรณีที่ 2: เข้าสู่ระบบแล้ว และยอมรับคำเชิญสำเร็จ */}
         {isAuthenticated && success && (
           <div style={{ textAlign: "center", padding: "20px 10px" }}>
             <div style={{ fontSize: "52px", marginBottom: "12px" }}>🎉</div>
             <h3 style={{ color: "#1f6f53", margin: "0 0 8px", fontSize: "18px" }}>
-              ยินดีต้อนรับเข้าสู่กลุ่ม {group.name}!
+              ยินดีต้อนรับเข้าสู่กลุ่ม {targetGroup?.name}!
             </h3>
             <p style={{ color: "var(--text-muted, #666)", fontSize: "14px", margin: 0 }}>
               กำลังนำคุณเข้าสู่หน้าภาพรวมของกลุ่ม...
@@ -168,26 +238,32 @@ export default function AcceptInvitePage() {
                 >
                   <span style={{ fontSize: "36px", display: "block", marginBottom: "8px" }}>✓</span>
                   <strong style={{ color: "#065f46", fontSize: "15px", display: "block" }}>
-                    คุณเป็นสมาชิกของกลุ่ม &quot;{group.name}&quot; อยู่แล้ว
+                    คุณเป็นสมาชิกของกลุ่ม &quot;{targetGroup?.name}&quot; อยู่แล้ว
                   </strong>
                   <p style={{ fontSize: "13px", color: "#047857", margin: "6px 0 0" }}>
                     บัญชีของคุณ: {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name}
                   </p>
                 </div>
 
-                <Link
-                  href="/"
+                <button
+                  type="button"
                   className="primary full-btn"
+                  onClick={() => {
+                    if (targetGroup?.id) {
+                      switchGroup(targetGroup.id);
+                    }
+                    router.push("/");
+                  }}
                   style={{
                     display: "block",
                     padding: "12px",
                     fontWeight: 700,
-                    textDecoration: "none",
                     textAlign: "center",
+                    cursor: "pointer",
                   }}
                 >
                   ➔ ไปยังหน้าภาพรวมกลุ่ม (Dashboard)
-                </Link>
+                </button>
               </div>
             ) : (
               <div>
@@ -260,6 +336,8 @@ export default function AcceptInvitePage() {
               </div>
             )}
           </div>
+        )}
+          </>
         )}
 
         <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px solid var(--border, #eef0ed)", paddingTop: "14px" }}>

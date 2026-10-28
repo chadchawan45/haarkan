@@ -379,25 +379,72 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       console.warn("Could not read local storage state:", e);
     }
 
-    // ซิงค์กลุ่มจากเซิร์ฟเวอร์เพื่อให้ข้อมูลตรงกันแม้ล็อกอินต่างเครื่องหรือต่างเบราว์เซอร์
-    fetch("/api/groups/sync")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data?.success && Array.isArray(data.groups) && data.groups.length > 0) {
-          setGroups((prev) => {
-            const map = new Map(prev.map((g) => [g.id, g]));
-            for (const g of data.groups) {
-              if (map.has(g.id)) {
-                map.set(g.id, { ...map.get(g.id)!, ...g });
-              } else {
-                map.set(g.id, g);
+    // ฟังก์ชันซิงค์ข้อมูลทั้งหมดจากเซิร์ฟเวอร์เพื่อให้ข้อมูลอัปเดตตรงกันข้ามเครื่อง/ข้ามบัญชี
+    const syncFromServer = () => {
+      fetch("/api/groups/sync")
+        .then((res) => res.json())
+        .then((data) => {
+          if (!data?.success) return;
+
+          if (Array.isArray(data.groups) && data.groups.length > 0) {
+            setGroups((prev) => {
+              const map = new Map(prev.map((g) => [g.id, g]));
+              for (const g of data.groups) {
+                if (map.has(g.id)) {
+                  map.set(g.id, { ...map.get(g.id)!, ...g });
+                } else {
+                  map.set(g.id, g);
+                }
               }
-            }
-            return Array.from(map.values());
-          });
-        }
-      })
-      .catch(() => {});
+              return Array.from(map.values());
+            });
+          }
+
+          if (Array.isArray(data.members) && data.members.length > 0) {
+            setMembers((prev) => {
+              const map = new Map(prev.map((m) => [m.id, m]));
+              for (const m of data.members) {
+                map.set(m.id, { ...(map.get(m.id) || {}), ...m });
+              }
+              return Array.from(map.values());
+            });
+          }
+
+          if (Array.isArray(data.expenses) && data.expenses.length > 0) {
+            setExpenses((prev) => {
+              const existingIds = new Set(prev.map((e) => e.id));
+              const newExps = data.expenses.filter((e: ExpenseRecord) => !existingIds.has(e.id));
+              return newExps.length > 0 ? [...newExps, ...prev] : prev;
+            });
+          }
+
+          if (Array.isArray(data.payments) && data.payments.length > 0) {
+            setPayments((prev) => {
+              const existingIds = new Set(prev.map((p) => p.id));
+              const newPays = data.payments.filter((p: PaymentRecord) => !existingIds.has(p.id));
+              return newPays.length > 0 ? [...newPays, ...prev] : prev;
+            });
+          }
+        })
+        .catch(() => {});
+    };
+
+    syncFromServer();
+    // โพลซิงค์ทุก 4 วินาที และเมื่อสลับแท็บกลับมา เพื่อให้เห็นสมาชิกใหม่ที่เข้าร่วมห้องได้ทันที
+    const interval = setInterval(syncFromServer, 4000);
+    const handleVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        syncFromServer();
+      }
+    };
+    window.addEventListener("focus", handleVisibility);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", handleVisibility);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, []);
 
   // Save to localStorage on changes (sanitize members so passwords are never stored in plaintext)
@@ -547,8 +594,21 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       )
     );
 
-    setGroups((prev) => [...prev, newGroup]);
+    const updatedGroups = [...groups, newGroup];
+    setGroups(updatedGroups);
     setCurrentGroupId(newGroup.id);
+
+    // ส่งข้อมูลกลุ่มใหม่ไปยังเซิร์ฟเวอร์ทันที เพื่อให้รหัสห้องพร้อมใช้งานข้ามเครื่องทันที
+    fetch("/api/groups/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        groups: updatedGroups,
+        expenses,
+        payments,
+        members: members.map(({ password: _, ...rest }) => rest),
+      }),
+    }).catch(() => {});
 
     setNotifications((prev) => [
       {

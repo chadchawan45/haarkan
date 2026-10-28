@@ -105,20 +105,8 @@ export default function SettingsPage() {
     setTimeout(() => setSavedNotice(""), 3000);
   };
 
-  const handleGenerateInvite = () => {
-    if (isDemo) {
-      triggerDemoLock("การสร้างลิงก์คำเชิญสมาชิก");
-      return;
-    }
-    const token = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
-      b.toString(16).padStart(2, "0")
-    ).join("");
-    setInviteToken(token);
-    setCopied(false);
-  };
-
   const handleCopyInvite = () => {
-    const inviteUrl = `${window.location.origin}/invites/${inviteToken}`;
+    const inviteUrl = `${window.location.origin}/invites/${group.code}`;
     navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
@@ -315,26 +303,20 @@ export default function SettingsPage() {
             </div>
 
             <p style={{ fontSize: "13px", color: "#666", margin: "0 0 14px", lineHeight: 1.5 }}>
-              หรือแชร์ลิงก์เชิญแบบมี Token ที่ปลอดภัย ผู้รับจะต้องมีบัญชีหรือสมัครสมาชิกด้วยอีเมลก่อนจึงจะสามารถเข้าร่วมกลุ่มได้
+              หรือแชร์ลิงก์เชิญเพื่อนด้านล่างนี้ เพื่อให้เพื่อนเปิดลิงก์และกดยืนยันเข้าร่วมกลุ่มได้โดยตรง:
             </p>
 
-            {inviteToken ? (
-              <div>
-                <div className="code-box" style={{ marginBottom: "10px" }}>
-                  <span style={{ wordBreak: "break-all", fontSize: "12px" }}>
-                    {typeof window !== "undefined" ? `${window.location.origin}/invites/${inviteToken}` : `/invites/${inviteToken}`}
-                  </span>
-                  <button className="primary" style={{ padding: "6px 12px", fontSize: "12px", whiteSpace: "nowrap" }} onClick={handleCopyInvite}>
-                    {copied ? "✓ คัดลอกแล้ว" : "คัดลอก"}
-                  </button>
-                </div>
-                <small style={{ color: "#666" }}>ลิงก์นี้มีอายุ 7 วัน และสามารถใช้งานได้</small>
+            <div>
+              <div className="code-box" style={{ marginBottom: "10px" }}>
+                <span style={{ wordBreak: "break-all", fontSize: "12px" }}>
+                  {typeof window !== "undefined" ? `${window.location.origin}/invites/${group.code}` : `/invites/${group.code}`}
+                </span>
+                <button className="primary" style={{ padding: "6px 12px", fontSize: "12px", whiteSpace: "nowrap" }} onClick={handleCopyInvite}>
+                  {copied ? "✓ คัดลอกแล้ว" : "🔗 คัดลอกลิงก์"}
+                </button>
               </div>
-            ) : (
-              <button className="primary full-btn" onClick={handleGenerateInvite}>
-                🔗 สร้างลิงก์เชิญใหม่
-              </button>
-            )}
+              <small style={{ color: "#666" }}>เพื่อนที่เปิดลิงก์นี้จะเห็นชื่อกลุ่มและสามารถเข้าสู่ระบบเพื่อเข้าร่วมได้ทันที</small>
+            </div>
           </div>
 
           {/* LINE Messaging API Integration */}

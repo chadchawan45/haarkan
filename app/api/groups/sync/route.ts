@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncClientData, getAllSharedGroups } from "@/lib/shared-groups-store";
+import { syncClientData, getAllSharedData } from "@/lib/shared-groups-store";
 
 export async function GET() {
   try {
-    const groups = getAllSharedGroups();
-    return NextResponse.json({ success: true, groups });
+    const store = getAllSharedData();
+    return NextResponse.json({
+      success: true,
+      groups: store.groups,
+      members: store.members,
+      expenses: store.expenses,
+      payments: store.payments,
+    });
   } catch (err: any) {
     return NextResponse.json(
       { success: false, message: err?.message || "Failed to fetch groups" },
@@ -21,6 +27,9 @@ export async function POST(request: NextRequest) {
       success: true,
       message: "Synced successfully",
       groups: updatedStore.groups,
+      members: updatedStore.members,
+      expenses: updatedStore.expenses,
+      payments: updatedStore.payments,
     });
   } catch (err: any) {
     return NextResponse.json(

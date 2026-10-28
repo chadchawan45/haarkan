@@ -39,9 +39,9 @@ export function JoinRoomModal() {
     }
 
     if (!isAuthenticated) {
-      // หากยังไม่ได้ล็อกอิน ให้พาไปหน้าล็อกอินพร้อม redirect กลับมาจอย
+      // หากยังไม่ได้ล็อกอิน ให้พาไปหน้ารับคำเชิญที่แสดงชื่อห้องและปุ่มสมัคร/ล็อกอิน
       handleClose();
-      router.push(`/login?redirect=${encodeURIComponent(`/?join=${codeToUse}`)}`);
+      router.push(`/invites/${codeToUse}`);
       return;
     }
 

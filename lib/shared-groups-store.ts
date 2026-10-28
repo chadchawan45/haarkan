@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 export interface SharedGroupData {
   id: string;
@@ -26,6 +27,7 @@ interface StoreData {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_FILE = path.join(DATA_DIR, "shared_groups_store.json");
+const TMP_STORE_FILE = path.join(os.tmpdir(), "shared_groups_store.json");
 
 const SEED_GROUPS: SharedGroupData[] = [
   {
@@ -58,51 +60,96 @@ const SEED_GROUPS: SharedGroupData[] = [
   },
 ];
 
+// ใช้ in-memory global variable ร่วมด้วย เพื่อให้คงอยู่ข้าม request ใน serverless container เดียวกัน
+declare global {
+  // eslint-disable-next-line no-var
+  var __sharedGroupsStore: StoreData | undefined;
+}
+
 function readStore(): StoreData {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(STORE_FILE)) {
-      const initial: StoreData = {
-        groups: SEED_GROUPS,
-        expenses: [],
-        payments: [],
-        members: [],
-        lastUpdated: new Date().toISOString(),
-      };
-      fs.writeFileSync(STORE_FILE, JSON.stringify(initial, null, 2), "utf-8");
-      return initial;
-    }
-    const raw = fs.readFileSync(STORE_FILE, "utf-8");
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("Failed to read shared store:", err);
-    return {
-      groups: SEED_GROUPS,
-      expenses: [],
-      payments: [],
-      members: [],
-      lastUpdated: new Date().toISOString(),
-    };
+  // 1. ถ้ามีข้อมูลในหน่วยความจำ ให้ใช้เป็นหลัก
+  if (globalThis.__sharedGroupsStore && globalThis.__sharedGroupsStore.groups.length > 0) {
+    return globalThis.__sharedGroupsStore;
   }
+
+  // 2. ลองอ่านจาก STORE_FILE ในโฟลเดอร์ data/
+  try {
+    if (fs.existsSync(STORE_FILE)) {
+      const raw = fs.readFileSync(STORE_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.groups)) {
+        globalThis.__sharedGroupsStore = parsed;
+        return parsed;
+      }
+    }
+  } catch (err) {
+    // continue fallback
+  }
+
+  // 3. ลองอ่านจาก TMP_STORE_FILE ใน tmpdir (กรณี serverless/Vercel)
+  try {
+    if (fs.existsSync(TMP_STORE_FILE)) {
+      const raw = fs.readFileSync(TMP_STORE_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.groups)) {
+        globalThis.__sharedGroupsStore = parsed;
+        return parsed;
+      }
+    }
+  } catch (err) {
+    // continue fallback
+  }
+
+  // 4. สร้างค่าเริ่มต้น SEED
+  const initial: StoreData = {
+    groups: SEED_GROUPS,
+    expenses: [],
+    payments: [],
+    members: [],
+    lastUpdated: new Date().toISOString(),
+  };
+
+  globalThis.__sharedGroupsStore = initial;
+  writeStore(initial);
+  return initial;
 }
 
 function writeStore(data: StoreData): void {
+  data.lastUpdated = new Date().toISOString();
+  globalThis.__sharedGroupsStore = data;
+
+  // ลองเขียนลง data/
+  let written = false;
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    data.lastUpdated = new Date().toISOString();
     fs.writeFileSync(STORE_FILE, JSON.stringify(data, null, 2), "utf-8");
+    written = true;
   } catch (err) {
-    console.error("Failed to write shared store:", err);
+    // data/ อาจเป็น Read-only ใน serverless (เช่น Vercel)
+  }
+
+  // หากเขียนลง data/ ไม่ได้ หรือเพื่อความปลอดภัย ให้เขียนลง os.tmpdir() ด้วย
+  try {
+    fs.writeFileSync(TMP_STORE_FILE, JSON.stringify(data, null, 2), "utf-8");
+    written = true;
+  } catch (err) {
+    // tmpdir write error
+  }
+
+  if (!written) {
+    console.warn("Could not write store to disk, persisting in memory only");
   }
 }
 
 export function getAllSharedGroups(): SharedGroupData[] {
   const store = readStore();
   return store.groups;
+}
+
+export function getAllSharedData(): StoreData {
+  return readStore();
 }
 
 export function findGroupByCode(code: string): {
@@ -213,6 +260,22 @@ export function joinGroupByCodeOnServer(code: string, member?: any): {
     } else {
       store.members.push({ ...member, status: "active" });
     }
+
+    if (!group.members) {
+      group.members = [];
+    }
+    const gMemIdx = group.members.findIndex((m: any) => m.id === member.id);
+    if (gMemIdx >= 0) {
+      group.members[gMemIdx] = { ...group.members[gMemIdx], ...member, status: "active" };
+    } else {
+      group.members.push({ ...member, status: "active" });
+    }
+
+    const groupIdx = store.groups.findIndex((g) => g.id === group.id);
+    if (groupIdx >= 0) {
+      store.groups[groupIdx] = group;
+    }
+
     writeStore(store);
   }
 

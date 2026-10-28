@@ -203,7 +203,7 @@ export default function NewGroupPage() {
                 type="button"
                 className="secondary"
                 onClick={() => {
-                  const joinUrl = `${window.location.origin}/?join=${roomCode}`;
+                  const joinUrl = `${window.location.origin}/invites/${roomCode}`;
                   navigator.clipboard.writeText(joinUrl);
                   setCopiedLink(true);
                   setTimeout(() => setCopiedLink(false), 2500);

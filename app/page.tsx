@@ -42,6 +42,7 @@ function DashboardContent() {
   } = useGroup();
 
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [roomToDelete, setRoomToDelete] = useState<GroupSettings | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -71,13 +72,23 @@ function DashboardContent() {
   useEffect(() => {
     const joinCode = searchParams.get("join") || searchParams.get("code");
     if (joinCode) {
-      joinGroupByCode(joinCode).then((res) => {
+      const clean = joinCode.trim().toUpperCase();
+      if (!isAuthenticated) {
+        // หากยังไม่ได้เข้าสู่ระบบ ให้พาไปหน้ารับคำเชิญ เพื่อดูรายละเอียดกลุ่มและเข้าสู่ระบบก่อน
+        router.push(`/invites/${clean}`);
+        return;
+      }
+      joinGroupByCode(clean).then((res) => {
         if (res.success) {
+          alert(`🎉 เข้าร่วมกลุ่ม "${res.group?.name || clean}" สำเร็จ!`);
+          router.replace("/");
+        } else {
+          alert(`⚠️ ${res.message}`);
           router.replace("/");
         }
       });
     }
-  }, [searchParams, joinGroupByCode, router]);
+  }, [searchParams, isAuthenticated, joinGroupByCode, router]);
 
   const [selectedPayment, setSelectedPayment] = useState<PaymentRecord | null>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
@@ -357,9 +368,30 @@ function DashboardContent() {
                       fontSize: "11px",
                       cursor: "pointer",
                     }}
-                    title="คัดลอกรหัสกลุ่ม"
+                    title="คัดลอกรหัสกลุ่ม 6 ตัว"
                   >
-                    {copiedCodeId === group.id ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
+                    {copiedCodeId === group.id ? "✓ คัดลอกแล้ว" : "📋 คัดลอกรหัส"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const link = `${window.location.origin}/invites/${group.code}`;
+                      navigator.clipboard.writeText(link);
+                      setCopiedLinkId(group.id);
+                      setTimeout(() => setCopiedLinkId(null), 2000);
+                    }}
+                    style={{
+                      background: "rgba(255,255,255,0.25)",
+                      border: "none",
+                      color: "#fff",
+                      borderRadius: "4px",
+                      padding: "2px 6px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                    }}
+                    title="คัดลอกลิงก์เชิญสำหรับส่งให้เพื่อน"
+                  >
+                    {copiedLinkId === group.id ? "✓ คัดลอกลิงก์แล้ว" : "🔗 คัดลอกลิงก์"}
                   </button>
                 </div>
 
