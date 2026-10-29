@@ -30,8 +30,8 @@ export function GoogleLoginButton({
 
   const defaultGoogleAccounts = [
     {
-      name: "กานต์ ชัชวาล",
-      email: "karn@gmail.com",
+      name: "ชัชวาลย์ (กอล์ฟ)",
+      email: "golf2545mc@gmail.com",
       avatarColor: "#1f6f53",
     },
     {

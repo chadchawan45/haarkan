@@ -467,7 +467,7 @@ export default function ProfilePage() {
               ชื่อเล่น (สำหรับแสดงในกลุ่ม)
               <input
                 type="text"
-                placeholder="เช่น กานต์, นนท์, มิน"
+                placeholder="เช่น กอล์ฟ, นนท์, มิน"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
               />

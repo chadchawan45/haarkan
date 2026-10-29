@@ -120,7 +120,7 @@ export const initialGroups: GroupSettings[] = [
     weekStartsOn: 1,
     defaultCurrency: "THB",
     creatorMemberId: "mem-golf",
-    memberIds: ["mem-golf", "mem-karn"],
+    memberIds: ["mem-golf", "mem-0928919213"],
     code: "HA8K29",
     bannerGradient: "linear-gradient(135deg, #1f6f53 0%, #154c39 100%)",
     createdAt: new Date().toISOString(),
@@ -132,7 +132,7 @@ export const initialGroups: GroupSettings[] = [
     weekStartsOn: 1,
     defaultCurrency: "THB",
     creatorMemberId: "mem-golf",
-    memberIds: ["mem-golf", "mem-karn"],
+    memberIds: ["mem-golf", "mem-0928919213"],
     code: "JP2026",
     bannerGradient: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
     createdAt: new Date().toISOString(),
@@ -150,18 +150,6 @@ const initialMembers: Member[] = [
     status: "active",
     avatarColor: "#1f6f53",
     email: "golf2545mc@gmail.com",
-    bankName: "กสิกรไทย (KBANK)",
-    bankAccountNumber: "012-3-45678-9",
-    promptpayNumber: "081-234-5678",
-  },
-  {
-    id: "mem-karn",
-    name: "กานต์",
-    nickname: "กานต์",
-    role: "admin",
-    status: "active",
-    avatarColor: "#2980b9",
-    email: "karn@haarkan.local",
     bankName: "กสิกรไทย (KBANK)",
     bankAccountNumber: "012-3-45678-9",
     promptpayNumber: "081-234-5678",
@@ -362,10 +350,10 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
           });
         }
         if (parsed.members) {
-          const DUMMY_IDS = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
+          const DUMMY_IDS = ["mem-karn", "mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
           // กรองสมาชิกตัวอย่างออกเพื่อพร้อมใช้งานจริง และตัดข้อความ (คุณ) ซ้ำซ้อน
           let sanitizedMembers: Member[] = parsed.members
-            .filter((m: Member) => !DUMMY_IDS.includes(m.id))
+            .filter((m: Member) => !DUMMY_IDS.includes(m.id) && m.name !== "กานต์" && m.email !== "karn@haarkan.local")
             .map((m: Member) => ({
               ...m,
               name: m.name.replace(/\(คุณ\)/g, "").trim(),
@@ -383,8 +371,8 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
           const hasSecondAccount = sanitizedMembers.some(
             (m: Member) => m.email?.toLowerCase() === "0928919213t@gmail.com" || m.id === "mem-0928919213"
           );
-          if (!hasSecondAccount && initialMembers[2]) {
-            sanitizedMembers = [...sanitizedMembers, initialMembers[2]];
+          if (!hasSecondAccount && initialMembers[1]) {
+            sanitizedMembers = [...sanitizedMembers, initialMembers[1]];
           }
 
           setMembers(sanitizedMembers.length > 0 ? sanitizedMembers : initialMembers);
@@ -393,7 +381,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
         if (parsed.payments) setPayments(parsed.payments);
         if (parsed.notifications) setNotifications(parsed.notifications);
         if (parsed.currentMemberId) {
-          const DUMMY_IDS = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
+          const DUMMY_IDS = ["mem-karn", "mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
           if (DUMMY_IDS.includes(parsed.currentMemberId)) {
             setCurrentMemberId("mem-golf");
           } else {
@@ -578,7 +566,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     [members, currentMemberId]
   );
   const isAdmin = currentMember.role === "admin";
-  const groupCreatorId = group.creatorMemberId || "mem-karn";
+  const groupCreatorId = group.creatorMemberId || "mem-golf";
   const isGroupCreator = currentMemberId === groupCreatorId;
   const groupCreator = useMemo(
     () => members.find((m) => m.id === groupCreatorId),
@@ -1200,13 +1188,13 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       triggerDemoLock("การล้างสมาชิกตัวอย่าง");
       return;
     }
-    const dummyIds = ["mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
+    const dummyIds = ["mem-karn", "mem-min", "mem-ton", "mem-nont", "mem-ploy", "mem-beam"];
     setMembers((prev) => {
-      const remaining = prev.filter((m) => !dummyIds.includes(m.id));
+      const remaining = prev.filter((m) => !dummyIds.includes(m.id) && m.name !== "กานต์");
       return remaining.length > 0 ? remaining : initialMembers;
     });
     if (dummyIds.includes(currentMemberId)) {
-      setCurrentMemberId("mem-karn");
+      setCurrentMemberId("mem-golf");
     }
   };
 
@@ -1299,7 +1287,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   };
 
   const demoLogin = () => {
-    setCurrentMemberId("mem-karn");
+    setCurrentMemberId("mem-golf");
     setIsAuthenticated(true);
     setIsDemo(true);
   };
@@ -1460,7 +1448,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
     setExpenses([]);
     setPayments([]);
     setNotifications([]);
-    setCurrentMemberId("mem-karn");
+    setCurrentMemberId("mem-golf");
     setIsAuthenticated(true);
     setIsDemo(false);
     try {

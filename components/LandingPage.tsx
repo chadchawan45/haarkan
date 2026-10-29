@@ -16,7 +16,7 @@ export function LandingPage() {
   const [calcMode, setCalcMode] = useState<"equal" | "weighted">("equal");
 
   // รายชื่อเพื่อนจำลองสำหรับคำนวณ
-  const sampleNames = ["คุณ (กานต์)", "มินนี่", "พี่ต้น", "นนท์", "พลอย", "บีม"];
+  const sampleNames = ["คุณ (กอล์ฟ)", "มินนี่", "พี่ต้น", "นนท์", "พลอย", "บีม"];
   const activeNames = sampleNames.slice(0, calcPeople);
 
   // คำนวณแบบแม่นยำระดับสตางค์ตามระบบของแอป
