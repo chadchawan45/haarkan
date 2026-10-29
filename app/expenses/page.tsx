@@ -12,17 +12,53 @@ export default function ExpensesListPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>("active");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [payerFilter, setPayerFilter] = useState<"all" | "my_paid" | "my_share">("all");
+  const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "amount_desc" | "amount_asc">("date_desc");
   const [search, setSearch] = useState("");
   const [voidingExpense, setVoidingExpense] = useState<ExpenseRecord | null>(null);
 
-  const categories = Array.from(new Set(expenses.map((e) => e.categoryName)));
+  const categories = Array.from(new Set(expenses.map((e) => e.categoryName))).filter(Boolean);
 
-  const filteredExpenses = expenses.filter((e) => {
-    if (statusFilter !== "all" && e.status !== statusFilter) return false;
-    if (categoryFilter !== "all" && e.categoryName !== categoryFilter) return false;
-    if (search.trim() && !e.title.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const filteredExpenses = expenses
+    .filter((e) => {
+      if (statusFilter !== "all" && e.status !== statusFilter) return false;
+      if (categoryFilter !== "all" && e.categoryName !== categoryFilter) return false;
+      if (search.trim() && !e.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (payerFilter === "my_paid") {
+        const paid = e.payers.some((p) => p.memberId === currentMemberId && p.amountSatang > 0);
+        if (!paid) return false;
+      }
+      if (payerFilter === "my_share") {
+        const hasShare = e.shares.some((s) => s.memberId === currentMemberId && s.amountSatang > 0);
+        if (!hasShare) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === "date_desc") return b.expenseDate.localeCompare(a.expenseDate) || b.createdAt.localeCompare(a.createdAt);
+      if (sortBy === "date_asc") return a.expenseDate.localeCompare(b.expenseDate) || a.createdAt.localeCompare(b.createdAt);
+      if (sortBy === "amount_desc") return b.totalAmountSatang - a.totalAmountSatang;
+      if (sortBy === "amount_asc") return a.totalAmountSatang - b.totalAmountSatang;
+      return 0;
+    });
+
+  const totalFilteredSatang = filteredExpenses
+    .filter((e) => e.status === "active")
+    .reduce((sum, e) => sum + e.totalAmountSatang, 0);
+
+  const totalMyPaidSatang = filteredExpenses
+    .filter((e) => e.status === "active")
+    .reduce((sum, e) => {
+      const p = e.payers.find((x) => x.memberId === currentMemberId);
+      return sum + (p?.amountSatang || 0);
+    }, 0);
+
+  const totalMyShareSatang = filteredExpenses
+    .filter((e) => e.status === "active")
+    .reduce((sum, e) => {
+      const s = e.shares.find((x) => x.memberId === currentMemberId);
+      return sum + (s?.amountSatang || 0);
+    }, 0);
 
   return (
     <main className="shell">
@@ -77,15 +113,16 @@ export default function ExpensesListPage() {
       </section>
 
       {/* Filter Toolbar */}
-      <div className="card filter-toolbar-card" style={{ marginBottom: "20px" }}>
+      <div className="card filter-toolbar-card" style={{ marginBottom: "16px" }}>
         <div className="filter-toolbar-content">
           <div className="filter-inputs-grid">
             <input
               type="text"
-              placeholder="🔍 ค้นหาชื่อรายการ..."
+              placeholder="🔍 ค้นหาชื่อรายการ หรือบิล..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="filter-search-input"
+              style={{ minWidth: "220px" }}
             />
 
             <div className="filter-selects-row">
@@ -100,16 +137,24 @@ export default function ExpensesListPage() {
               </select>
 
               <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                value={payerFilter}
+                onChange={(e) => setPayerFilter(e.target.value as any)}
                 className="filter-select"
               >
-                <option value="all">หมวดหมู่: ทั้งหมด</option>
-                {categories.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
+                <option value="all">ความเกี่ยวข้อง: ทั้งหมด</option>
+                <option value="my_paid">เฉพาะฉันเป็นคนจ่าย</option>
+                <option value="my_share">เฉพาะฉันมีส่วนหาร</option>
+              </select>
+
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as any)}
+                className="filter-select"
+              >
+                <option value="date_desc">เรียง: วันที่ล่าสุด</option>
+                <option value="date_asc">เรียง: วันที่เก่าสุด</option>
+                <option value="amount_desc">เรียง: ยอดเงินมากสุด</option>
+                <option value="amount_asc">เรียง: ยอดเงินน้อยสุด</option>
               </select>
             </div>
           </div>
@@ -118,7 +163,82 @@ export default function ExpensesListPage() {
             พบ <strong>{filteredExpenses.length}</strong> รายการ
           </span>
         </div>
+
+        {/* Quick Category Chips */}
+        {categories.length > 0 && (
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "12px", paddingTop: "12px", borderTop: "1px solid var(--border)" }}>
+            <button
+              type="button"
+              onClick={() => setCategoryFilter("all")}
+              style={{
+                padding: "4px 10px",
+                borderRadius: "8px",
+                fontSize: "12px",
+                fontWeight: 600,
+                border: "1px solid var(--border)",
+                background: categoryFilter === "all" ? "var(--primary)" : "var(--card-bg)",
+                color: categoryFilter === "all" ? "#fff" : "var(--text-muted)",
+                cursor: "pointer",
+              }}
+            >
+              ทั้งหมด
+            </button>
+            {categories.map((c) => {
+              const isSelected = categoryFilter === c;
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategoryFilter(isSelected ? "all" : c)}
+                  style={{
+                    padding: "4px 10px",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    border: isSelected ? "1px solid var(--primary)" : "1px solid var(--border)",
+                    background: isSelected ? "rgba(31, 111, 83, 0.12)" : "var(--card-bg)",
+                    color: isSelected ? "var(--primary)" : "var(--text-main)",
+                    cursor: "pointer",
+                  }}
+                >
+                  {c}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
+
+      {/* Quick Summary Bar for Active Filtered Results */}
+      {filteredExpenses.length > 0 && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "10px",
+            marginBottom: "20px",
+          }}
+        >
+          <div className="card" style={{ padding: "12px 16px", margin: 0 }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>ยอดรวมบิลที่แสดง</span>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--text-main)", marginTop: "2px" }}>
+              {formatTHB(totalFilteredSatang)}
+            </div>
+          </div>
+          <div className="card" style={{ padding: "12px 16px", margin: 0 }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>ที่คุณสำรองจ่าย</span>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: "var(--primary)", marginTop: "2px" }}>
+              {formatTHB(totalMyPaidSatang)}
+            </div>
+          </div>
+          <div className="card" style={{ padding: "12px 16px", margin: 0 }}>
+            <span style={{ fontSize: "11px", color: "var(--text-muted)" }}>ส่วนที่คุณต้องหาร</span>
+            <div style={{ fontSize: "18px", fontWeight: 800, color: totalMyShareSatang > 0 ? "var(--danger, #cf4f36)" : "var(--text-muted)", marginTop: "2px" }}>
+              {formatTHB(totalMyShareSatang)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* รายการค่าใช้จ่าย */}
       <div className="content-1col">

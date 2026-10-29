@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useGroup, Role } from "@/lib/group-context";
+import { useGroup, Role, CLASSROOM_GRADIENTS } from "@/lib/group-context";
 import { Navbar } from "@/components/Navbar";
 
 export default function SettingsPage() {
@@ -18,6 +18,7 @@ export default function SettingsPage() {
     updateGroupSettings,
     addMember,
     toggleMemberStatus,
+    toggleMemberRole,
     removeMember,
     clearDummyMembers,
     resetToDefaultData,
@@ -29,6 +30,7 @@ export default function SettingsPage() {
   const [groupName, setGroupName] = useState(group.name);
   const [description, setDescription] = useState(group.description);
   const [weekStartsOn, setWeekStartsOn] = useState(group.weekStartsOn);
+  const [bannerGradient, setBannerGradient] = useState(group.bannerGradient || CLASSROOM_GRADIENTS[0]);
 
   // Invite Generator
   const [inviteToken, setInviteToken] = useState("");
@@ -104,9 +106,30 @@ export default function SettingsPage() {
       name: groupName.trim(),
       description: description.trim(),
       weekStartsOn: Number(weekStartsOn),
+      bannerGradient,
     });
     setSavedNotice("บันทึกการตั้งค่ากลุ่มเรียบร้อยแล้ว");
     setTimeout(() => setSavedNotice(""), 3000);
+  };
+
+  const handleTransferCreator = (targetMember: any) => {
+    if (isDemo) {
+      triggerDemoLock("การโอนสิทธิ์ผู้สร้างกลุ่ม");
+      return;
+    }
+    const cleanTargetName = targetMember.nickname
+      ? `${targetMember.nickname} (${targetMember.name})`
+      : targetMember.name;
+    const confirmed = confirm(
+      `คุณแน่ใจหรือไม่ว่าต้องการโอนสิทธิ์ "ผู้สร้างกลุ่ม" ให้กับคุณ ${cleanTargetName}?\n\nเมื่อโอนสิทธิ์แล้ว คุณจะกลายเป็น Admin ทั่วไป และผู้สร้างกลุ่มคนใหม่จะมีสิทธิ์สูงสุดในการจัดการกลุ่มแทน`
+    );
+    if (!confirmed) return;
+
+    updateGroupSettings({
+      creatorMemberId: targetMember.id,
+    });
+    setSavedNotice(`โอนสิทธิ์ผู้สร้างกลุ่มให้คุณ ${cleanTargetName} เรียบร้อยแล้ว`);
+    setTimeout(() => setSavedNotice(""), 4000);
   };
 
   const handleCopyInvite = () => {
@@ -254,6 +277,33 @@ export default function SettingsPage() {
                 <option value={5}>วันศุกร์ (Friday)</option>
               </select>
             </label>
+
+            <div style={{ margin: "14px 0" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, display: "block", marginBottom: "8px" }}>
+                🎨 ธีมสีแบนเนอร์กลุ่ม
+              </span>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {CLASSROOM_GRADIENTS.map((grad, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setBannerGradient(grad)}
+                    style={{
+                      width: "38px",
+                      height: "38px",
+                      borderRadius: "10px",
+                      background: grad,
+                      border: bannerGradient === grad ? "3px solid var(--text-main)" : "2px solid transparent",
+                      cursor: "pointer",
+                      boxShadow: bannerGradient === grad ? "0 0 0 2px var(--primary)" : "none",
+                      transform: bannerGradient === grad ? "scale(1.08)" : "scale(1)",
+                      transition: "transform 0.15s ease",
+                    }}
+                    title={`เลือกธีมสีแบบที่ ${idx + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
 
             <button
               type="submit"
@@ -465,13 +515,42 @@ export default function SettingsPage() {
                     </div>
 
                     {isGroupCreator && !isCurrent && (
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                         <button
                           type="button"
                           className="outline"
                           style={{
                             fontSize: "11px",
-                            padding: "5px 10px",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => toggleMemberRole(m.id)}
+                          title="เปลี่ยนบทบาทระหว่าง Admin และ Member"
+                        >
+                          {m.role === "admin" ? "ลดเป็น Member" : "⭐ ตั้งเป็น Admin"}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{
+                            fontSize: "11px",
+                            padding: "4px 8px",
+                            borderRadius: "6px",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                          }}
+                          onClick={() => handleTransferCreator(m)}
+                          title="โอนสิทธิ์ผู้สร้างกลุ่มให้สมาชิกคนนี้"
+                        >
+                          👑 โอนสิทธิ์ผู้สร้าง
+                        </button>
+                        <button
+                          type="button"
+                          className="outline"
+                          style={{
+                            fontSize: "11px",
+                            padding: "4px 8px",
                             color: m.status === "active" ? "var(--warning, #d97706)" : "var(--primary, #1f6f53)",
                             borderColor: m.status === "active" ? "var(--warning, #d97706)" : "var(--primary, #1f6f53)",
                             borderRadius: "6px",
@@ -485,7 +564,7 @@ export default function SettingsPage() {
                           type="button"
                           style={{
                             fontSize: "11px",
-                            padding: "5px 10px",
+                            padding: "4px 8px",
                             color: "var(--danger, #ef4444)",
                             background: "var(--danger-light, rgba(239, 68, 68, 0.1))",
                             border: "1px solid var(--danger, #ef4444)",
