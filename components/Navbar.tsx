@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useGroup } from "@/lib/group-context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -10,6 +10,7 @@ import { SiteAnnouncementBanner } from "@/components/SiteAnnouncementBanner";
 import { JoinRoomModal } from "@/components/JoinRoomModal";
 
 export function Navbar() {
+  const router = useRouter();
   const pathname = usePathname();
   const {
     group,
@@ -100,17 +101,27 @@ export function Navbar() {
           {isAuthenticated ? (
             <>
               <button
-                className="secondary desktop-only"
-                onClick={logout}
+                className="secondary"
+                onClick={() => {
+                  if (confirm("คุณต้องการออกจากระบบใช่หรือไม่?")) {
+                    logout();
+                    router.push("/");
+                  }
+                }}
                 style={{
-                  padding: "6px 12px",
+                  padding: "6px 10px",
                   fontSize: "12px",
-                  color: "#777",
+                  color: "var(--text-muted)",
                   borderRadius: "10px",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px",
                 }}
                 title="ออกจากระบบ"
+                aria-label="ออกจากระบบ"
               >
-                ออกจากระบบ
+                <span>🚪</span>
+                <span className="desktop-only">ออกจากระบบ</span>
               </button>
 
               {/* กระดิ่งแจ้งเตือน */}

@@ -46,6 +46,7 @@ export default function ProfilePage() {
     isAuthenticated,
     isDemo,
     triggerDemoLock,
+    logout,
   } = useGroup();
 
   // Profile Fields
@@ -806,6 +807,69 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Card ออกจากระบบ */}
+        <div
+          className="card"
+          style={{
+            marginTop: "24px",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            background: "rgba(239, 68, 68, 0.03)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: "14px",
+            }}
+          >
+            <div>
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  color: "#dc2626",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                <span>🚪</span> ออกจากระบบ
+              </h3>
+              <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
+                ต้องการออกจากบัญชีผู้ใช้บนอุปกรณ์นี้ เพื่อสลับบัญชีหรือเข้าสู่ระบบใหม่
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="danger-btn"
+              onClick={() => {
+                if (confirm("คุณต้องการออกจากระบบใช่หรือไม่?")) {
+                  logout();
+                  router.push("/login");
+                }
+              }}
+              style={{
+                padding: "10px 18px",
+                fontSize: "13px",
+                fontWeight: 700,
+                borderRadius: "10px",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: "pointer",
+                boxShadow: "0 2px 8px rgba(220, 38, 38, 0.15)",
+              }}
+            >
+              <span>🚪</span> ออกจากระบบ
+            </button>
           </div>
         </div>
       </div>
