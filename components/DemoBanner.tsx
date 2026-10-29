@@ -10,15 +10,7 @@ export function DemoBanner() {
   if (!isDemo) return null;
 
   return (
-    <div
-      style={{
-        background: "linear-gradient(90deg, #fffbeb 0%, #fef3c7 100%)",
-        borderBottom: "1px solid #fde68a",
-        color: "#92400e",
-        padding: "10px 16px",
-        fontSize: "13px",
-      }}
-    >
+    <div className="demo-banner">
       <div
         className="shell"
         style={{
@@ -31,22 +23,10 @@ export function DemoBanner() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span
-            style={{
-              background: "#f59e0b",
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: "11px",
-              padding: "2px 8px",
-              borderRadius: "99px",
-              letterSpacing: "0.5px",
-            }}
-          >
-            DEMO MODE
-          </span>
+          <span className="demo-badge">DEMO MODE</span>
           <span>
             ⚡ <strong>โหมดทดลองใช้งาน:</strong> เปิดให้ทดลองเฉพาะฟังก์ชัน{" "}
-            <strong style={{ color: "#1f6f53", textDecoration: "underline" }}>
+            <strong style={{ color: "var(--primary)", textDecoration: "underline" }}>
               &quot;เพิ่มรายจ่าย&quot;
             </strong>{" "}
             เท่านั้น (ฟังก์ชันอื่นถูกล็อกไว้)
@@ -74,9 +54,6 @@ export function DemoBanner() {
               fontSize: "12px",
               borderRadius: "8px",
               textDecoration: "none",
-              color: "#92400e",
-              borderColor: "#f59e0b",
-              background: "#fff",
             }}
           >
             🚀 สมัครสมาชิก
@@ -86,11 +63,12 @@ export function DemoBanner() {
             style={{
               background: "transparent",
               border: "none",
-              color: "#b45309",
+              color: "inherit",
               fontSize: "12px",
               cursor: "pointer",
               padding: "4px 8px",
               textDecoration: "underline",
+              opacity: 0.8,
             }}
             title="ออกจากโหมดทดลองใช้งานและกลับสู่หน้าหลัก"
           >

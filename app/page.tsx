@@ -154,7 +154,7 @@ function DashboardContent() {
       <Navbar />
 
       {/* แถบต้อนรับด้านบน */}
-      <section className="welcome-section">
+      <section className="welcome-section animate-in">
         <div>
           <h1 className="welcome-title">
             สวัสดี, {currentMember.nickname ? `${currentMember.nickname} (${currentMember.name})` : currentMember.name} 👋
@@ -182,28 +182,15 @@ function DashboardContent() {
           <Link
             href="/expenses/new"
             className="primary touch-action-btn"
-            style={{
-              boxShadow: "0 4px 12px rgba(31, 111, 83, 0.25)",
-            }}
           >
             ＋ เพิ่มรายจ่าย
           </Link>
         </div>
       </section>
 
-
-
       {/* กล่องไฮไลต์โหมดทดลองใช้งาน (Demo Callout) */}
       {isDemo && (
-        <section
-          className="card"
-          style={{
-            background: "linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)",
-            border: "2px solid #f59e0b",
-            marginBottom: "20px",
-            padding: "16px 20px",
-          }}
-        >
+        <section className="card demo-callout animate-in delay-1">
           <div
             style={{
               display: "flex",
@@ -219,16 +206,7 @@ function DashboardContent() {
                 <strong style={{ fontSize: "15px", color: "#92400e" }}>
                   คุณกำลังอยู่ในโหมดทดลองใช้งาน (Demo Mode)
                 </strong>
-                <span
-                  style={{
-                    background: "#f59e0b",
-                    color: "#fff",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    padding: "2px 8px",
-                    borderRadius: "99px",
-                  }}
-                >
+                <span className="demo-badge">
                   เปิดเฉพาะเพิ่มรายจ่าย
                 </span>
               </div>
@@ -256,7 +234,7 @@ function DashboardContent() {
       {/* กรณีผู้ใช้ยังไม่มีกลุ่ม (เช่น เพิ่งสมัครสมาชิกใหม่) */}
       {groups.length === 0 ? (
         <section
-          className="card"
+          className="card animate-in delay-1"
           style={{
             padding: "50px 24px",
             textAlign: "center",
@@ -322,7 +300,7 @@ function DashboardContent() {
       ) : (
         /* คอนเทนเนอร์กลุ่มปัจจุบัน: สรุปสถานะการเงินจัดวางอยู่ภายในกลุ่มนี้ */
         <section
-          className="card"
+          className="card animate-in delay-1"
           style={{
             padding: 0,
             overflow: "hidden",
@@ -361,20 +339,9 @@ function DashboardContent() {
                   flexWrap: "wrap",
                 }}
               >
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    background: "rgba(255,255,255,0.2)",
-                    padding: "3px 10px",
-                    borderRadius: "99px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                  }}
-                >
-                  <span>👥 กลุ่มที่กำลังเปิดใช้งาน</span>
-                </div>
+                <span className="group-hero-tag">
+                  👥 กลุ่มที่กำลังเปิดใช้งาน
+                </span>
                 {groups.length > 1 && (
                   <select
                     value={group.id}
@@ -410,9 +377,6 @@ function DashboardContent() {
                     border: "none",
                     padding: 0,
                     margin: 0,
-                    fontSize: "26px",
-                    fontWeight: 800,
-                    letterSpacing: "-0.5px",
                     color: "#fff",
                     cursor: "pointer",
                     display: "inline-flex",
@@ -422,16 +386,8 @@ function DashboardContent() {
                   }}
                   title="คลิกที่ชื่อกลุ่มเพื่อดูรายชื่อสมาชิกในกลุ่มนี้"
                 >
-                  <span>{group.name}</span>
-                  <span
-                    style={{
-                      fontSize: "12px",
-                      background: "rgba(255,255,255,0.25)",
-                      padding: "2px 8px",
-                      borderRadius: "99px",
-                      fontWeight: 600,
-                    }}
-                  >
+                  <span className="group-hero-title">{group.name}</span>
+                  <span className="group-hero-tag" style={{ fontSize: "12px", margin: 0 }}>
                     👥 ดูสมาชิก
                   </span>
                 </button>
@@ -451,109 +407,54 @@ function DashboardContent() {
                 </p>
               )}
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  flexWrap: "wrap",
-                  fontSize: "13px",
-                }}
-              >
-                <div
-                  style={{
-                    background: "rgba(0,0,0,0.25)",
-                    padding: "4px 10px",
-                    borderRadius: "8px",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                  }}
-                >
+              <div className="group-info-bar">
+                <div className="group-code-pill action-bar">
                   <span style={{ opacity: 0.85 }}>🏷️ รหัสกลุ่ม:</span>
                   <strong style={{ fontFamily: "monospace", letterSpacing: "2px", fontSize: "15px" }}>
                     {group.code}
                   </strong>
                   <button
                     type="button"
+                    className="action-item"
                     onClick={() => {
                       navigator.clipboard.writeText(group.code);
                       setCopiedCodeId(group.id);
                       setTimeout(() => setCopiedCodeId(null), 2000);
                     }}
-                    style={{
-                      background: "rgba(255,255,255,0.2)",
-                      border: "none",
-                      color: "#fff",
-                      borderRadius: "4px",
-                      padding: "2px 6px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                    }}
                     title="คัดลอกรหัสกลุ่ม 6 ตัว"
                   >
-                    {copiedCodeId === group.id ? "✓ คัดลอกแล้ว" : "📋 คัดลอกรหัส"}
+                    {copiedCodeId === group.id ? "✓ คัดลอกแล้ว" : "📋 คัดลอก"}
                   </button>
                   <button
                     type="button"
+                    className="action-item"
                     onClick={() => {
                       const link = `${window.location.origin}/invites/${group.code}`;
                       navigator.clipboard.writeText(link);
                       setCopiedLinkId(group.id);
                       setTimeout(() => setCopiedLinkId(null), 2000);
                     }}
-                    style={{
-                      background: "rgba(255,255,255,0.25)",
-                      border: "none",
-                      color: "#fff",
-                      borderRadius: "4px",
-                      padding: "2px 6px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                    }}
                     title="คัดลอกลิงก์เชิญสำหรับส่งให้เพื่อน"
                   >
-                    {copiedLinkId === group.id ? "✓ คัดลอกลิงก์แล้ว" : "🔗 คัดลอกลิงก์"}
+                    {copiedLinkId === group.id ? "✓ ลิงก์แล้ว" : "🔗 ลิงก์"}
                   </button>
                   <button
                     type="button"
+                    className="action-item"
                     onClick={() => handleShareGroup(group)}
-                    style={{
-                      background: "rgba(255,255,255,0.25)",
-                      border: "none",
-                      color: "#fff",
-                      borderRadius: "4px",
-                      padding: "2px 8px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
                     title="แชร์กลุ่มไปยัง LINE, Messenger หรือแอปอื่นๆ"
                   >
-                    {copiedShareId === group.id ? "✓ คัดลอกข้อความแชร์แล้ว" : "📤 แชร์ชวนเพื่อน"}
+                    {copiedShareId === group.id ? "✓ แชร์แล้ว" : "📤 แชร์"}
                   </button>
                 </div>
 
                 <button
                   type="button"
+                  className="group-members-pill"
                   onClick={() => setMembersModalOpen(true)}
-                  style={{
-                    background: "rgba(0,0,0,0.25)",
-                    border: "none",
-                    color: "#fff",
-                    borderRadius: "8px",
-                    padding: "4px 10px",
-                    fontSize: "13px",
-                    cursor: "pointer",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
                   title="คลิกเพื่อดูรายชื่อสมาชิกในกลุ่มนี้"
                 >
-                  <span>👥 สมาชิก {members.length} คน</span>
+                  👥 สมาชิก {members.length} คน
                 </button>
                 <span style={{ opacity: 0.9 }}>
                   👑 {isGroupCreator ? "คุณคือผู้สร้างกลุ่ม" : "Admin"}
@@ -631,8 +532,8 @@ function DashboardContent() {
           </div>
 
           {/* สรุปสถิติ 3 ช่องแบบเรียบง่ายและเป็นระเบียบ */}
-          <div className="stats-grid-dashboard" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
-            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+          <div className="stats-grid-dashboard animate-in delay-2" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            <Link href="/balances" className="card card-clickable card-press" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">ยอดที่คุณต้องชำระ</div>
                 <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ชำระเงิน →</span>
@@ -645,7 +546,7 @@ function DashboardContent() {
               </div>
             </Link>
 
-            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+            <Link href="/balances" className="card card-clickable card-press" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">ยอดที่คุณควรได้รับ</div>
                 <span style={{ fontSize: "11px", color: "#1f6f53", fontWeight: 600 }}>ดูยอด →</span>
@@ -658,7 +559,7 @@ function DashboardContent() {
               </div>
             </Link>
 
-            <Link href="/balances" className="card card-clickable" style={{ margin: 0 }}>
+            <Link href="/balances" className="card card-clickable card-press" style={{ margin: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="stat-label">รอตรวจสอบสลิป</div>
                 {pendingReviewPayments.length > 0 && (
@@ -706,52 +607,28 @@ function DashboardContent() {
                     : toM?.name || "เพื่อนในกลุ่ม";
 
                   return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: "12px",
-                        padding: "12px 14px",
-                        background: "rgba(239, 68, 68, 0.04)",
-                        borderRadius: "12px",
-                        border: "1px solid rgba(239, 68, 68, 0.2)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div key={idx} className="debt-card debt-card-danger">
+                      <div className="debt-user">
                         <div
+                          className="debt-avatar"
                           style={{
-                            width: "38px",
-                            height: "38px",
-                            borderRadius: "10px",
                             background: toM?.avatarColor || "#1f6f53",
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "14px",
-                            fontWeight: 700,
-                            overflow: "hidden",
-                            flexShrink: 0,
                           }}
                         >
                           {toM?.avatarUrl ? (
                             <img
                               src={toM.avatarUrl}
                               alt={toName}
-                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
                             />
                           ) : (
                             (toM?.nickname || toM?.name || "U").slice(0, 1)
                           )}
                         </div>
                         <div>
-                          <div style={{ fontSize: "14px", fontWeight: 700, color: "var(--text-main)" }}>
+                          <div className="debt-name">
                             โอนให้ {toName}
                           </div>
-                          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                          <div className="debt-detail">
                             {toM?.promptpayNumber
                               ? `พร้อมเพย์: ${toM.promptpayNumber}`
                               : toM?.bankAccountNumber
@@ -761,8 +638,8 @@ function DashboardContent() {
                         </div>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <span style={{ fontSize: "18px", fontWeight: 800, color: "#dc2626" }}>
+                      <div className="debt-actions">
+                        <span className="debt-amount" style={{ color: "#dc2626" }}>
                           {formatTHB(debt.amountSatang)}
                         </span>
                         <button
@@ -824,18 +701,7 @@ function DashboardContent() {
                     : fromM?.name || "เพื่อนในกลุ่ม";
 
                   return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "10px 14px",
-                        background: "rgba(31, 111, 83, 0.04)",
-                        borderRadius: "10px",
-                        border: "1px solid rgba(31, 111, 83, 0.15)",
-                      }}
-                    >
+                    <div key={idx} className="debt-card debt-card-success">
                       <div style={{ fontSize: "13px", color: "var(--text-main)" }}>
                         รอ <strong>{fromName}</strong> โอนเงินคืน
                       </div>
@@ -851,21 +717,9 @@ function DashboardContent() {
 
           {/* สถานะบัญชีสมดุล ไม่มีหนี้ค้าง */}
           {myDebts.length === 0 && myCredits.length === 0 && activeExpenses.length > 0 && (
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "14px 18px",
-                background: "rgba(31, 111, 83, 0.06)",
-                border: "1px dashed rgba(31, 111, 83, 0.3)",
-                borderRadius: "12px",
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                color: "#1f6f53",
-              }}
-            >
-              <span style={{ fontSize: "20px" }}>🎉</span>
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>
+            <div className="balance-ok">
+              <span className="balance-ok-icon">🎉</span>
+              <span>
                 ยอดบัญชีของคุณสมดุลแล้ว ไม่มีหนี้ค้างชำระในกลุ่ม &ldquo;{group.name}&rdquo;
               </span>
             </div>

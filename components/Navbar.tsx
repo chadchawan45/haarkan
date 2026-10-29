@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useGroup } from "@/lib/group-context";
@@ -27,6 +27,13 @@ export function Navbar() {
   } = useGroup();
 
   const [showNotifs, setShowNotifs] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const isSystemAdmin =
     (currentMember as any)?.systemRole === "super_admin" ||
@@ -56,7 +63,7 @@ export function Navbar() {
       ];
 
   return (
-    <header>
+    <header className={`sticky-header ${scrolled ? "scrolled" : ""}`}>
       {/* แถบประกาศสำคัญจากผู้ดูแลระบบ */}
       <SiteAnnouncementBanner />
 
