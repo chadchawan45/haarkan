@@ -60,6 +60,69 @@ export default function ExpensesListPage() {
       return sum + (s?.amountSatang || 0);
     }, 0);
 
+  const handleExportCSV = () => {
+    const BOM = "\uFEFF";
+    const header = [
+      "วันที่",
+      "ชื่อรายการ",
+      "หมวดหมู่",
+      "ยอดเงินรวม (บาท)",
+      "ผู้สำรองจ่าย",
+      "วิธีหาร",
+      "ผู้ร่วมหารและยอดเงิน",
+      "หมายเหตุ",
+      "สถานะ",
+    ];
+
+    const escapeCsv = (val: string | number) => `"${String(val).replace(/"/g, '""')}"`;
+
+    const rows = filteredExpenses.map((exp) => {
+      const payerStr = exp.payers
+        .map((p) => {
+          const m = members.find((x) => x.id === p.memberId);
+          return `${m?.name || "สมาชิก"}: ${(p.amountSatang / 100).toFixed(2)} บาท`;
+        })
+        .join(" | ");
+
+      const sharesStr = exp.shares
+        .map((s) => {
+          const m = members.find((x) => x.id === s.memberId);
+          return `${m?.name || "สมาชิก"}: ${(s.amountSatang / 100).toFixed(2)} บาท`;
+        })
+        .join(" | ");
+
+      const modeStr =
+        exp.splitMode === "equal"
+          ? "หารเท่ากัน"
+          : exp.splitMode === "custom"
+          ? "กำหนดเอง"
+          : "ตามสัดส่วนน้ำหนัก";
+
+      return [
+        escapeCsv(exp.expenseDate),
+        escapeCsv(exp.title),
+        escapeCsv(exp.categoryName),
+        (exp.totalAmountSatang / 100).toFixed(2),
+        escapeCsv(payerStr),
+        escapeCsv(modeStr),
+        escapeCsv(sharesStr),
+        escapeCsv(exp.note || "-"),
+        escapeCsv(exp.status === "active" ? "ใช้งานอยู่" : `ยกเลิกแล้ว (${exp.voidReason || "-"})`),
+      ].join(",");
+    });
+
+    const csvContent = BOM + [header.join(","), ...rows].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `haarkan_expenses_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <main className="shell">
       <Navbar />
@@ -103,13 +166,24 @@ export default function ExpensesListPage() {
           <h1>รายการรายจ่ายทั้งหมด</h1>
         </div>
 
-        <Link
-          href="/expenses/new"
-          className="primary"
-          style={{ fontWeight: 700 }}
-        >
-          ＋ เพิ่มรายจ่ายใหม่
-        </Link>
+        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={handleExportCSV}
+            style={{ fontWeight: 600, display: "inline-flex", alignItems: "center", gap: "6px" }}
+            title="ส่งออกรายการรายจ่ายที่กำลังแสดงเป็นไฟล์ Excel / CSV พร้อมเปิดใช้งานได้ทันที"
+          >
+            📥 ส่งออก Excel / CSV
+          </button>
+          <Link
+            href="/expenses/new"
+            className="primary"
+            style={{ fontWeight: 700 }}
+          >
+            ＋ เพิ่มรายจ่ายใหม่
+          </Link>
+        </div>
       </section>
 
       {/* Filter Toolbar */}
